@@ -4,7 +4,7 @@ date = 2021-05-31T00:09:39+08:00
 tags = ["fpv, drone, micro, mini, 3-inch, quadcopter, hobby, racing, freestyle, 5-inch, switchback, wind, electronics, esc, flight-controller, hglrc"]
 +++
 
-It has been a long time since I have written my {% post_link Micro-or-Mini-quad 'last post' %}. I would say I have accomplished the minimum prerequisite of what I wanted to do with fpv, either micro or mini quads. I have built my own quads with my own selected components. They are not ideal or the best that it can be, as I only have few months of experience building and flying a DIY. But they are not bad either. 
+It has been a long time since I have written my [last post](@/2020-10-26-Micro-or-Mini-quad.md). I would say I have accomplished the minimum prerequisite of what I wanted to do with fpv, either micro or mini quads. I have built my own quads with my own selected components. They are not ideal or the best that it can be, as I only have few months of experience building and flying a DIY. But they are not bad either.
 
 I can't believe COVID isn't over yet, but that doesn't stop me to build and fly. However, the pace of building and flying has plateaued for a moment, until I can find the right moment again, after I finished the most important step in my life, which is to buy my own property: my first house. I won't talk about that process here, as it would make this post very long.
 
