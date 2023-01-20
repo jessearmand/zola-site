@@ -8,8 +8,6 @@ A self-taught software engineer from computer and control systems education back
 
 I am working as a Senior Software Engineer at [Screening Eagle Dreamlab](https://screeningeagle.com/) Singapore.
 
-My online resume is available at [Stack Overflow Developer Story](https://stackoverflow.com/story/jessearmand). Please take a look to understand more about my professional history.
-
 I have been working on iOS platform since 2008. At that time, I was fascinated and intrigued by the iOS when Apple released the first SDK to developers all over the world with iPhone being hackable and having the same base system as OS X.
 
 Since then, I have worked mostly on mobile applications development on iOS, and will continue to do so for the native / web platform. In general, I'm looking forward to the potential of Swift development ecosystem as a full stack platform, in addition to macOS / iOS. However, throughout the years I have also dedicated some time into engineering work that is not necessarily specific to Apple's platform. 
