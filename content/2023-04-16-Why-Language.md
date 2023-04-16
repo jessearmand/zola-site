@@ -42,7 +42,7 @@ To process the previous paragraph, I will need to process `55` words.
 ```
 In total that's about 5500 milliseconds or 5.5 seconds. Which could be faster if I understood most of the words written above, but it will be significantly slower if it was written in a different language. 
 
-A `Transformer` could process the sequence of words in parallel at constant sequential operation `O(1)` which I still couldn't imagine how it's capable of doing so, but I trust the author of the paper. At a certain dimension `d` it will increase the computational complexity, but a restricted `Self-Attention` can limit the amount of sequences to `O(n)/r)` which is still impressive.
+A `Transformer` could process the sequence of words in parallel at constant sequential operation `O(1)` which I still couldn't imagine how it's capable of doing so, but I trust the author of the paper. At a certain dimension `d` it will increase the computational complexity, but a restricted `Self-Attention` can limit the amount of sequences to `O(n/r)` which is still impressive.
 
 Back to the topic of this post *Why Language?*. As I learn and self-reflect on this from time-to-time. We have become more intelligent and capable to acquire new knowledge, understanding, and interact with others — humans and machines alike — as we have better languages. Surely, we have other elements of physical gestures, tactile, and vision to further improve the process of learning and interaction. However, the signals produced from such experiences have to be interpreted, processed, and understood as well. We constructed a representation in a language form that could possibly describe those process, as best as we could. 
 
