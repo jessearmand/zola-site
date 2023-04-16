@@ -6,7 +6,7 @@ path = "about"
 
 A self-taught software engineer from computer and control systems education background.
 
-I am working as a Senior Software Engineer at [Screening Eagle Dreamlab](https://screeningeagle.com/) Singapore.
+I am working as a Senior Software Engineer at [Screening Eagle](https://screeningeagle.com/) Singapore.
 
 I have been working on iOS platform since 2008. At that time, I was fascinated and intrigued by the iOS when Apple released the first SDK to developers all over the world with iPhone being hackable and having the same base system as OS X.
 
