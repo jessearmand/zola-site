@@ -30,4 +30,4 @@ For some reason, I encountered these issues only on a high-powered 6S build. I d
 
 I did however encounter video electrical noise issue on an All-In-One board powered by 4S where one board has the FC + ESC, but that's  happening at different component. It's a common issue where the closer the video signal is to the source of noise in power supply, the more likely it will be disturbed. I cleaned up the wirings and installed a 25V 1000uF Panasonic FM Low ESR capacitor. But, it's not a severe problem that require me to replace my FC / ESC / Motor.
 
-In conclusion, a lot of these annoying issues can be prevented as we have more clean wirings, solder joints, and experience in troubleshooting electronics of our own build.
+In conclusion, a lot of these annoying issues can be prevented by having clean wirings, solder joints, and more experience in troubleshooting electronics of our own build.
