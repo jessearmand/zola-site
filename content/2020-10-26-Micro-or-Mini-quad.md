@@ -8,7 +8,7 @@ I have been flying only 3-inch propeller size quadcopters so far, as it's the fi
 
 This is made more apparent with micro long range explorer such as the Flywoo Explorer and GEPRC Crocodile Baby.
 
-To clarify the terms about the size of quadcopters, mini quad refers to mostly quadcopter frames with size of around 200mm - 300mm of diagonal wheelbase, while a micro is mostly 100mm or less, but sometimes it can be used for sizes in between 100mm to 200mm. But, for most people, it's much simpler to refer to mini quad as the ones equipped with 5-inch propellers size, and micros can be used for those who are sized less than 100mm up to 3-inch. 
+To clarify the terms about the size of quadcopters, mini quad refers to mostly quadcopter frames with size of around 200mm - 300mm of diagonal wheelbase, while a micro is mostly 150mm or less, but sometimes it can be used for sizes in between 100mm to 200mm. But, for most people, it's much simpler to refer to mini quad as the ones equipped with 5-inch propellers size, and micros can be used for those who are sized less than 100mm up to 3-inch.
 
 I found it a little bit inconsistent and can be confusing to refer to *Brushless Whoop* or *Tiny Whoop* propeller sizes with milimeters while referring to *Toothpick* or larger propeller sizes with inches. Then, we always refer to frame sizes in milimeters :). But, as time goes by everyone in this industry got used to these inconsistencies. I assume it's because the manufacturers have to cater to the US market with Imperial units, and those outside US who are using metric units. It's easy to get the specifications mixed up.
 
