@@ -25,9 +25,9 @@ To understand the current state of software evolution, it's crucial to distingui
 The infrastructure layer, has been remarkably resistant to change. This stability is evident across various sectors: 
 
 * Financial transaction running on banks or trading platform will hardly ever get changed without a drastic push. Did you remember when bitcoin paper was published? From what I found, it's published on 31 October 2008. 
-* Financial technology has been building on top of existing payment infrastructure. Regardless of what you think about the underlying technology, cryptocurrencies also have been associated with fraud and scam. 
+* Financial technology has been building on top of existing payment infrastructure.
 
-Because, most cryptocurrencies don't interoperate with the backbone of the payment system, it doesn't have enough utility to justify that there's a good side from all of them. It's not enough to run a decentralized wallet, it has to interoperate. This is just one example, because I had some working experience at a fintech company.
+Regardless of what you think about the underlying technology, cryptocurrencies also have been associated with fraud and scam. Because, most cryptocurrencies don't interoperate with the backbone of the payment system, it doesn't have enough utility to justify that there's a good side from all of them. It's not enough to run a decentralized wallet, it has to interoperate. This is just one example, because I had some working experience at a fintech company.
 
 I believe that's the case for other industries, they are mostly running legacy software, that has been working well for many years. It's very hard to create an incentive to refresh the whole system, and it's extremely hard to actually work on a new software system that could replace them. There's a reason why Tesla is still the leader in automobile software revolution, and has only recently been followed by Chinese companies. That's also influenced by the ability of Chinese companies to source manufacturers from within China, and be able to streamline all the software and hardware running on them.
 
