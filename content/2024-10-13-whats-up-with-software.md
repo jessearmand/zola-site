@@ -4,7 +4,7 @@ date = 2024-10-13T14:33:26+08:00
 tags = ["software", "artificial intelligence", "AI", "speculation"]
 +++
 
-About 13 years ago, [software was eating the world](https://a16z.com/why-software-is-eating-the-world/), and just last month [taste is eating Silicon Valley](https://www.workingtheorys.com/p/taste-is-eating-silicon-valley). As the author of the post, Anu Atluru, said, ["Taste is eating software. Taste is the new weapon."](https://www.workingtheorys.com/i/149057938/taste-is-eating-software-taste-is-the-new-weapon). While I won't pretend to fully understand what's happening, I can observe what has happened to software and speculate on what it might become.
+About 13 years ago, [software was eating the world](https://a16z.com/why-software-is-eating-the-world/), and just last month [taste is eating Silicon Valley](https://www.workingtheorys.com/p/taste-is-eating-silicon-valley). As the author of the post said, ["Taste is eating software. Taste is the new weapon."](https://www.workingtheorys.com/i/149057938/taste-is-eating-software-taste-is-the-new-weapon). While I won't pretend to fully understand what's happening, I can observe what has happened to software and speculate on what it might become.
 
 We have software running on:
 
