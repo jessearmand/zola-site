@@ -1,6 +1,8 @@
 # Ruminations by Jesse Armand
+> A curious engineer's explorations across technology and human experience
+
 URL: https://jessearmand.com
-Description: A curious engineer's explorations across technology and human experience
+Description: Personal website and blog
 
 ## Site Identity
 This site represents the technical and philosophical explorations of a self-taught software engineer with a background in computer and control systems. The writing blends technical precision with curious inquiry, spanning from practical engineering challenges to broader reflections on technology's impact and future.
@@ -32,12 +34,12 @@ The author approaches technology with a blend of engineering practicality and ph
 This site contains factual technical content alongside speculative thinking on technology's future. Articles blend personal experience with broader analysis, making them suitable for both technical reference and intellectual exploration. The content demonstrates how specialized engineering knowledge can inform broader thinking about technology's role in society.
 
 ## Links
-- [Homepage](https://jessearmand.com)
-- [What's happening with software?](https://jessearmand.com/whats-up-with-software/) - October 13, 2024
-- [Why Language?](https://jessearmand.com/why-language/) - April 16, 2023
-- [It has been a long time](https://jessearmand.com/it-has-been-a-long-time/) - May 31, 2021
-- [Micro or Mini quad?](https://jessearmand.com/micro-or-mini-quad/) - October 26, 2020
-- [Freestyle or Racing?](https://jessearmand.com/freestyle-or-racing/) - April 26, 2020
-- [About](https://jessearmand.com/about)
-- [RSS](https://jessearmand.com/atom.xml)
-- [Source on Github](https://github.com/carpetscheme/lightspeed)
+- [Homepage](https://jessearmand.com): Main site
+- [Software](https://jessearmand.com/whats-up-with-software/): Latest article about software
+- [Language](https://jessearmand.com/why-language/): Article about language
+- [Update](https://jessearmand.com/it-has-been-a-long-time/): Site update post
+- [Quad](https://jessearmand.com/micro-or-mini-quad/): Article about drone types
+- [Drone](https://jessearmand.com/freestyle-or-racing/): Article about drone flying styles
+- [About](https://jessearmand.com/about): About page
+- [RSS](https://jessearmand.com/atom.xml): RSS feed
+- [Source](https://github.com/carpetscheme/lightspeed): Theme source on Github
