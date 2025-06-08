@@ -45,9 +45,12 @@ ogimage = "lightning.png"
 
 zola = true
 maintained_with_love = true
+chat_enabled = true
+api_key = ""  # Deprecated: API key now managed via Vercel environment variables for security
 
 footer_links = [
     {url = "$BASE_URL/about", name = "About"},
+    {url = "$BASE_URL/chat", name = "Chat with Resume"},
     {url = "$BASE_URL/atom.xml", name = "RSS"},
     {url = "https://github.com/carpetscheme/lightspeed", name = "Source on Github"},
 ]

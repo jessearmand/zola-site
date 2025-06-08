@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+  <h1 class="title">{{ page.title }}</h1>
+  <p>{{ page.description | default(value="Ask about my resume, background, or experiences.") }}</p>
+
+  <!-- Chat interface HTML with theme-friendly structure -->
+  <div class="card" style="margin: 30px 0;">
+    <div class="card-body">
+      <div id="chat-output" style="max-height: 400px; overflow-y: auto; margin-bottom: 15px;"></div>
+      <div class="input-group mt-3">
+        <input type="text" id="chat-input" placeholder="Type your question about my resume..." class="form-control" onkeypress="if(event.key === 'Enter' || event.keyCode === 13) { sendMessage(); event.preventDefault(); }">
+        <button onclick="sendMessage()" class="btn btn-primary">Send</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- JavaScript for LLM interaction -->
+<script>
+  async function sendMessage() {
+    const input = document.getElementById('chat-input').value.trim();
+    if (!input) {
+      alert('Please enter a question before sending.');
+      return; // Prevent empty messages
+    }
+
+    const output = document.getElementById('chat-output');
+    output.innerHTML += `<p style="margin: 5px 0;"><strong>You:</strong> ${input}</p>`;  // Display user message
+
+    // Hardcoded resume data for simplicity; could be fetched or passed dynamically
+    const resumeData = `I am a self-taught software engineer with a background in computer and control systems. I work as a Senior Software Engineer at Screening Eagle in Singapore, focusing on iOS development since 2008. Hobbies include building and flying FPV quadcopters.`;
+
+    try {
+      const response = await fetch('/api/chat-proxy', {  // Call the local serverless function
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          question: input,
+          resumeData: resumeData,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Request failed with status ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      if (data.error) {
+        output.innerHTML += `<p style="margin: 5px 0; color: red;"><strong>Error:</strong> ${data.error}</p>`;
+      } else {
+        const aiResponse = data.choices[0].message.content;  // Extract AI response
+        output.innerHTML += `<p style="margin: 5px 0;"><strong>AI:</strong> ${aiResponse}</p>`;
+      }
+    } catch (error) {
+      output.innerHTML += `<p style="margin: 5px 0; color: red;"><strong>Error:</strong> Failed to get response. Details: ${error.message}</p>`;
+    }
+
+    // Clear input and scroll to bottom
+    document.getElementById('chat-input').value = '';
+    output.scrollTop = output.scrollHeight;
+  }
+</script>
+{% endblock %}
