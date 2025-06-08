@@ -1,6 +1,6 @@
 +++
 title = "How to Add a Chat Interface to Zola Static Site Generator"
-date = 2024-10-14T00:00:00+08:00
+date = 2025-06-08T23:11:31+08:00
 tags = ["zola", "static site generator", "chat interface", "AI", "LLM"]
 +++
 
