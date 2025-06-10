@@ -21,7 +21,7 @@ First, I created a new page in Zola for the chat interface. This involved adding
 ```markdown
 +++
 title = "Chat with My Resume"
-date = 2024-10-14T00:00:00+08:00
+date = 2025-06-08T23:11:31+08:00
 path = "chat"
 template = "chat.html"
 +++
@@ -31,23 +31,64 @@ This page allows you to ask questions about my resume using an AI chat interface
 
 Note the `template = "chat.html"` which tells Zola to use a custom template for rendering this page.
 
-### 2. Design a Custom Template for the Chat Interface
+### 2. Design a Custom Template and Match the Theme
 
-Next, I created a custom HTML template at `templates/chat.html` to define the structure of the chat interface. This template extends my base theme template and includes HTML for the chat UI and JavaScript for handling user input and API calls.
+This is the most critical step and where pitfalls often occur. To ensure the chat page looks like part of your site, it must correctly inherit from your theme's main template.
 
-Here's a simplified version of the template:
+For my site, which uses the `lightspeed` theme, the main template is `index.html`, not a generic `base.html`. A common mistake is creating a new `base.html`, which disconnects the page from the theme's styling, header, and footer.
 
-- A container for displaying chat messages.
-- An input field and send button for user queries.
-- JavaScript to send requests to an LLM API and display responses.
+My `templates/chat.html` starts by extending the correct theme template:
+```html
+{% extends "index.html" %}
+```
 
-Since Zola is a static site generator, the dynamic functionality (i.e., fetching AI responses) is handled client-side via JavaScript by calling an external API.
+Inside this template, I structured the content within an `<article>` tag, just like the theme's `page.html`, to ensure consistency.
 
-### 3. Set Up Client-Side Logic for AI Interaction
+#### Styling the Chat Interface
 
-The JavaScript in the `chat.html` template handles user input and communicates with an LLM API. For my implementation, I used a placeholder for an API like Groq, which offers fast inference for AI models. The script includes hardcoded resume data (for simplicity) to provide context to the AI.
+The `lightspeed` theme is minimal and doesn't come with a component library like Bootstrap. To make the chat box, input field, and button match the theme, I used inline styles that mimic the theme's aesthetic (e.g., colors, fonts, and spacing).
 
-**Important Security Note:** Exposing API keys in client-side code is insecure. In a production environment, you should proxy requests through a backend service or use environment variables during a build step to avoid hardcoding sensitive information. For this demo, the API key placeholder must be replaced with a secure method.
+Here's a simplified view of the HTML structure within the template:
+```html
+<article>
+  <h1>{{ page.title }}</h1>
+  <p>{{ page.content | safe }}</p>
+
+  <!-- Chat interface styled to match the theme -->
+  <div style="margin-top: 2rem; background: white; padding: 1rem; border: 1px solid #ddd;">
+    <div id="chat-output">...</div>
+    <div style="display: flex; gap: 0.8rem;">
+      <input type="text" id="chat-input" ... >
+      <button ... >Send</button>
+    </div>
+  </div>
+</article>
+```
+This approach ensures the chat component feels native to the site. For more complex styling, using a separate custom CSS file linked in your main template is a better practice.
+
+### 3. Implement Secure API Interaction with a Serverless Function
+
+The biggest challenge with adding dynamic features to a static site is handling secrets like API keys securely. **Never expose your API key in client-side JavaScript.**
+
+The best solution is to use a serverless function as a proxy. The client-side JavaScript on the chat page calls this function, which then securely calls the LLM API on the server-side, using an environment variable to access the API key.
+
+For my deployment on Vercel, I created a serverless function at `api/chat-proxy.js`. Here's how the interaction works:
+
+1.  The user types a message and clicks "Send".
+2.  The client-side JavaScript sends a `POST` request to my site's own endpoint: `/api/chat-proxy`.
+3.  The Vercel serverless function receives the request, retrieves the `OPENROUTER_API_KEY` from its environment variables, and makes a secure request to the OpenRouter API.
+4.  The function returns the AI's response to the client, which then displays it.
+
+The client-side `fetch` call looks like this:
+```javascript
+// In templates/chat.html
+const response = await fetch('/api/chat-proxy', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ question: input, resumeData: resumeData }),
+});
+```
+This way, the API key never leaves the server, and the implementation is secure.
 
 ### 4. Add Navigation to the Chat Page
 
@@ -66,16 +107,18 @@ This ensures visitors can easily find the chat interface from any page on my sit
 
 ### 5. Test and Deploy
 
-After setting up the page and template, I tested the chat functionality locally using Zola's built-in server (`zola serve`). Once confirmed, I deployed the site to my hosting platform, ensuring the chat interface worked as expected in the live environment.
+After setting up the page and template, I tested the site locally using `zola serve`. Since the serverless function only runs on a platform like Vercel, local testing of the API call is limited.
+
+For deployment, I pushed the code to Vercel and, most importantly, **set the `OPENROUTER_API_KEY` as an environment variable** in the Vercel project settings. This makes the key available to the serverless function. Once deployed, the chat interface worked securely in the live environment.
 
 ## Challenges and Considerations
 
-- **Security:** As mentioned, client-side API calls can expose sensitive keys. A more robust solution would involve a serverless function or backend proxy to handle API requests securely.
-- **Performance:** Since Zola generates static HTML, the chat relies on client-side JavaScript. Ensure the API calls are optimized to avoid slow response times.
-- **Customization:** Tailor the resume data and AI prompts to provide accurate and relevant responses based on your content.
+- **Security:** This is paramount. The serverless function proxy pattern is the recommended approach. Directly embedding keys or using "build-time" environment variables in client-side code is not secure.
+- **Theme Integration:** Getting the styling right is crucial for a seamless user experience. Always extend your theme's main template (`index.html` for `lightspeed`) and inspect its CSS to match the design. Avoid creating a separate `base.html` unless you intend to override the theme completely.
+- **Local Development vs. Production:** Features like serverless functions won't work with `zola serve`. Your development workflow must account for testing these features upon deployment to a platform like Vercel or Netlify.
 
 ## Conclusion
 
-Adding a chat interface to a Zola static site is a creative way to blend static content with dynamic, AI-powered interactivity. While it requires careful handling of security and performance aspects, the result is a unique user experience that can set your site apart. If you're interested in seeing this in action, check out the [Chat with My Resume](/chat) page on my site.
+Adding a chat interface to a Zola static site is a creative way to blend static content with dynamic, AI-powered interactivity. By correctly handling template inheritance, styling, and API security with serverless functions, you can create a unique user experience that sets your site apart. If you're interested in seeing this in action, check out the [Chat with My Resume](/chat) page on my site.
 
-Feel free to adapt this approach to your own Zola projects, and let me know if you have questions or improvements!
+Feel free to adapt this approach to your own Zola projects.
