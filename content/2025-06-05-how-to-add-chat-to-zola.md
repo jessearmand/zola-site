@@ -111,10 +111,34 @@ After setting up the page and template, I tested the site locally using `zola se
 
 For deployment, I pushed the code to Vercel and, most importantly, **set the `OPENROUTER_API_KEY` as an environment variable** in the Vercel project settings. This makes the key available to the serverless function. Once deployed, the chat interface worked securely in the live environment.
 
+### Troubleshooting: The Case of the Missing API Route (404 Error)
+
+After deploying the site, I ran into a frustrating issue: the Zola site loaded perfectly, but any call to my `/api/chat-proxy` endpoint resulted in a `404 Not Found` error.
+
+My first instinct was that the routing was misconfigured. I tried several variations of `vercel.json`, adding explicit `routes` to direct traffic to the API. However, nothing worked.
+
+The key clue was in the Vercel build logs. While the `npm run build` command for Zola executed successfully, there was **no mention of the serverless function being compiled or deployed**. The build process was completely ignoring the `api` directory.
+
+#### The Root Cause and Solution
+
+The problem was a subtle conflict between my `vercel.json` file and Vercel's zero-configuration build system. The moment Vercel sees a `builds` property in `vercel.json`, it ignores its own automatic framework detection and *only* performs the builds you have explicitly defined. My configuration was correctly building the static site but was not correctly triggering the build for the serverless function.
+
+The solution was to **delete the `vercel.json` file entirely** and configure the project directly in the Vercel dashboard.
+
+1.  **Delete `vercel.json`:** This allows Vercel's build system to take over and apply its own logic.
+2.  **Configure the Build in the Vercel Dashboard:**
+    *   Go to your Project Settings -> General -> Build & Development Settings.
+    *   Set **Framework Preset** to **Other**.
+    *   Set the **Build Command** to `npm run build`.
+    *   Set the **Output Directory** to `public`.
+
+By doing this, Vercel's system correctly identifies two components: a static site that needs to be built with `npm run build`, and an `api` directory containing a serverless function that needs to be deployed. It handles the rest automatically, including the routing.
+
 ## Challenges and Considerations
 
-- **Security:** This is paramount. The serverless function proxy pattern is the recommended approach. Directly embedding keys or using "build-time" environment variables in client-side code is not secure.
-- **Theme Integration:** Getting the styling right is crucial for a seamless user experience. Always extend your theme's main template (`index.html` for `lightspeed`) and inspect its CSS to match the design. Avoid creating a separate `base.html` unless you intend to override the theme completely.
+- **Security:** This is paramount. The serverless function proxy pattern is the only recommended approach for handling API keys with a static site.
+- **Theme Integration:** Getting the styling right is crucial for a seamless user experience. Always extend your theme's main template (`index.html` for `lightspeed`) and inspect its CSS to match the design.
+- **Vercel Configuration:** For hybrid projects (static site + serverless functions), avoid using a `vercel.json` file with a `builds` property. Instead, configure your build command and output directory in the Vercel dashboard and let its zero-configuration system handle the rest. This is less error-prone and ensures all parts of your project are detected and deployed correctly.
 - **Local Development vs. Production:** Features like serverless functions won't work with `zola serve`. Your development workflow must account for testing these features upon deployment to a platform like Vercel or Netlify.
 
 ## Conclusion
