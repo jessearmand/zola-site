@@ -5,13 +5,15 @@
   <h1 class="title">{{ page.title }}</h1>
   <p>{{ page.description | default(value="Ask about my resume, background, or experiences.") }}</p>
 
-  <!-- Chat interface HTML with theme-friendly structure -->
-  <div class="card" style="margin: 30px 0;">
+  <!-- Improved chat interface with larger, theme-consistent elements -->
+  <div class="card mt-4">  <!-- Added margin top for spacing; use theme card class -->
     <div class="card-body">
-      <div id="chat-output" style="max-height: 400px; overflow-y: auto; margin-bottom: 15px;"></div>
-      <div class="input-group mt-3">
-        <input type="text" id="chat-input" placeholder="Type your question about my resume..." class="form-control" onkeypress="if(event.key === 'Enter' || event.keyCode === 13) { sendMessage(); event.preventDefault(); }">
-        <button onclick="sendMessage()" class="btn btn-primary">Send</button>
+      <div id="chat-output" class="border p-3 mb-3" style="max-height: 400px; overflow-y: auto; background-color: #f8f9fa; color: #212529;">  <!-- Used Bootstrap-like classes for background and text color -->
+        <!-- Chat messages will append here -->
+      </div>
+      <div class="input-group">
+        <input type="text" id="chat-input" placeholder="Type your question about my resume..." class="form-control form-control-lg" style="flex-grow: 1;" onkeypress="if(event.key === 'Enter' || event.keyCode === 13) { sendMessage(); event.preventDefault(); }">
+        <button class="btn btn-primary btn-lg ms-2" onclick="sendMessage()">Send</button>  <!-- Increased button size and added margin for spacing -->
       </div>
     </div>
   </div>
