@@ -10,7 +10,7 @@
       }
     },
     {
-      "src": "api/**/*.js",
+      "src": "api/chat-proxy.js",
       "use": "@vercel/node"
     }
   ],
