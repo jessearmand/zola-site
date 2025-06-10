@@ -1,23 +1,21 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container">
-  <h1 class="title">{{ page.title }}</h1>
+<main>
+  <h1>{{ page.title }}</h1>
   <p>{{ page.description | default(value="Ask about my resume, background, or experiences.") }}</p>
 
-  <!-- Improved chat interface with larger, theme-consistent elements -->
-  <div class="card mt-4">  <!-- Added margin top for spacing; use theme card class -->
-    <div class="card-body">
-      <div id="chat-output" class="border p-3 mb-3" style="max-height: 400px; overflow-y: auto; background-color: #f8f9fa; color: #212529;">  <!-- Used Bootstrap-like classes for background and text color -->
-        <!-- Chat messages will append here -->
-      </div>
-      <div class="input-group">
-        <input type="text" id="chat-input" placeholder="Type your question about my resume..." class="form-control form-control-lg" style="flex-grow: 1;" onkeypress="if(event.key === 'Enter' || event.keyCode === 13) { sendMessage(); event.preventDefault(); }">
-        <button class="btn btn-primary btn-lg ms-2" onclick="sendMessage()">Send</button>  <!-- Increased button size and added margin for spacing -->
-      </div>
+  <!-- Chat interface styled to match the lightspeed theme -->
+  <div style="margin-top: 2rem; background-color: white; border: 1px solid #2d2d2d; padding: 1rem;">
+    <div id="chat-output" style="max-height: 400px; overflow-y: auto; padding: 0.5rem; background-color: white; color: #2d2d2d;">
+      <!-- Chat messages will append here -->
+    </div>
+    <div style="display: flex; margin-top: 1rem; align-items: center;">
+      <input type="text" id="chat-input" placeholder="Type your question about my resume..." style="flex-grow: 1; padding: 0.5rem; font-size: 1rem; border: 1px solid #2d2d2d;" onkeypress="if(event.key === 'Enter' || event.keyCode === 13) { sendMessage(); event.preventDefault(); }">
+      <button style="margin-left: 0.5rem; padding: 0.5rem 1rem; font-size: 1rem; background-color: darkred; color: white; border: none; cursor: pointer;" onclick="sendMessage()">Send</button>
     </div>
   </div>
-</div>
+</main>
 
 <!-- JavaScript for LLM interaction -->
 <script>
