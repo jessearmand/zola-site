@@ -1,22 +1,32 @@
-{% extends "base.html" %}
+{% extends "index.html" %}
+
+{% block title %}{{ page.title }} &middot; {{ config.title }}{% endblock title %}
+{% block description %}{{ page.description | default(value=config.description) }}{% endblock description %}
 
 {% block content %}
-<main>
+<article>
   <h1>{{ page.title }}</h1>
-  <p>{{ page.description | default(value="Ask about my resume, background, or experiences.") }}</p>
+
+  {% if page.date %}
+    <p style="font-size:90%;">Posted on <time datetime="{{ page.date | date(format="%+") }}">{{ page.date | date(format="%B %d, %Y") }}</time></p>
+  {% endif %}
+
+  {{ page.content | safe }}
 
   <!-- Chat interface styled to match the lightspeed theme -->
-  <div style="margin-top: 2rem; background-color: white; border: 1px solid #2d2d2d; padding: 1rem;">
-    <div id="chat-output" style="max-height: 400px; overflow-y: auto; padding: 0.5rem; background-color: white; color: #2d2d2d;">
+  <div style="margin-top: 2rem; background: white; padding: 1rem; border: 1px solid #ddd;">
+    <div id="chat-output" style="max-height: 400px; overflow-y: auto; margin-bottom: 1rem; padding-right: 10px;">
       <!-- Chat messages will append here -->
     </div>
-    <div style="display: flex; margin-top: 1rem; align-items: center;">
-      <input type="text" id="chat-input" placeholder="Type your question about my resume..." style="flex-grow: 1; padding: 0.5rem; font-size: 1rem; border: 1px solid #2d2d2d;" onkeypress="if(event.key === 'Enter' || event.keyCode === 13) { sendMessage(); event.preventDefault(); }">
-      <button style="margin-left: 0.5rem; padding: 0.5rem 1rem; font-size: 1rem; background-color: darkred; color: white; border: none; cursor: pointer;" onclick="sendMessage()">Send</button>
+    <div style="display: flex; align-items: center; gap: 0.8rem;">
+      <input type="text" id="chat-input" placeholder="Type your question..." style="flex-grow: 1; padding: 0.8rem; font-size: 1rem; border: 1px solid #ccc; border-radius: 3px;" onkeypress="if(event.key === 'Enter' || event.keyCode === 13) { sendMessage(); event.preventDefault(); }">
+      <button style="padding: 0.8rem 1.2rem; font-size: 1rem; background-color: darkred; color: white; border: none; border-radius: 3px; cursor: pointer;" onclick="sendMessage()">Send</button>
     </div>
   </div>
-</main>
+</article>
+{% endblock content %}
 
+{% block after_main %}
 <!-- JavaScript for LLM interaction -->
 <script>
   async function sendMessage() {
@@ -27,13 +37,12 @@
     }
 
     const output = document.getElementById('chat-output');
-    output.innerHTML += `<p style="margin: 5px 0;"><strong>You:</strong> ${input}</p>`;  // Display user message
+    output.innerHTML += `<p style="margin: 0.5rem 0;"><strong>You:</strong> ${input}</p>`;
 
-    // Hardcoded resume data for simplicity; could be fetched or passed dynamically
     const resumeData = `I am a self-taught software engineer with a background in computer and control systems. I work as a Senior Software Engineer at Screening Eagle in Singapore, focusing on iOS development since 2008. Hobbies include building and flying FPV quadcopters.`;
 
     try {
-      const response = await fetch('/api/chat-proxy', {  // Call the local serverless function
+      const response = await fetch('/api/chat-proxy', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -50,18 +59,17 @@
 
       const data = await response.json();
       if (data.error) {
-        output.innerHTML += `<p style="margin: 5px 0; color: red;"><strong>Error:</strong> ${data.error}</p>`;
+        output.innerHTML += `<p style="margin: 0.5rem 0; color: red;"><strong>Error:</strong> ${data.error}</p>`;
       } else {
-        const aiResponse = data.choices[0].message.content;  // Extract AI response
-        output.innerHTML += `<p style="margin: 5px 0;"><strong>AI:</strong> ${aiResponse}</p>`;
+        const aiResponse = data.choices[0].message.content;
+        output.innerHTML += `<p style="margin: 0.5rem 0;"><strong>AI:</strong> ${aiResponse}</p>`;
       }
     } catch (error) {
-      output.innerHTML += `<p style="margin: 5px 0; color: red;"><strong>Error:</strong> Failed to get response. Details: ${error.message}</p>`;
+      output.innerHTML += `<p style="margin: 0.5rem 0; color: red;"><strong>Error:</strong> Failed to get response. Details: ${error.message}</p>`;
     }
 
-    // Clear input and scroll to bottom
     document.getElementById('chat-input').value = '';
     output.scrollTop = output.scrollHeight;
   }
 </script>
-{% endblock %}
+{% endblock after_main %}
