@@ -62,17 +62,33 @@ export default async function handler(req, res) {
       Connection: 'keep-alive',
     });
 
-    const reader = openRouterRes.body.getReader();
-    const decoder = new TextDecoder();
     try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        res.write(decoder.decode(value));
+      // If running under Node (Vercel) we usually get a classic Readable stream
+      if (typeof openRouterRes.body.pipe === 'function') {
+        openRouterRes.body.pipe(res);
+
+        openRouterRes.body.on('error', (err) => {
+          res.write(`data: {"error":"${err.message}"}\n\n`);
+          res.end();
+        });
+
+        // Ensure the client connection closes when the upstream stream ends
+        openRouterRes.body.on('end', () => res.end());
+
+      } else {
+        // Fallback for Web ReadableStream (rare, but covers all runtimes)
+        const reader = openRouterRes.body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          res.write(decoder.decode(value));
+        }
+        res.end();
       }
     } catch (streamErr) {
       res.write(`data: {"error":"${streamErr.message}"}\n\n`);
-    } finally {
       res.end();
     }
     return;
