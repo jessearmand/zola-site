@@ -39,33 +39,59 @@
     const output = document.getElementById('chat-output');
     output.innerHTML += `<p style="margin: 0.5rem 0;"><strong>You:</strong> ${input}</p>`;
 
-    const resumeData = `I am a self-taught software engineer with a background in computer and control systems. I work as a Senior Software Engineer at Screening Eagle in Singapore, focusing on iOS development since 2008. Hobbies include building and flying FPV quadcopters.`;
-
     try {
       const response = await fetch('/api/chat-proxy', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          question: input,
-          resumeData: resumeData,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: input }),
       });
 
-      if (!response.ok) {
+      if (!response.ok || !response.body) {
         throw new Error(`Request failed with status ${response.status}: ${response.statusText}`);
       }
 
-      const data = await response.json();
-      if (data.error) {
-        output.innerHTML += `<p style="margin: 0.5rem 0; color: red;"><strong>Error:</strong> ${data.error}</p>`;
-      } else {
-        const aiResponse = data.choices[0].message.content;
-        output.innerHTML += `<p style="margin: 0.5rem 0;"><strong>AI:</strong> ${aiResponse}</p>`;
+      /* ---- Stream the SSE response ---- */
+      const reader   = response.body.getReader();
+      const decoder  = new TextDecoder();
+      let   buffer   = '';
+
+      // paragraph that will receive incremental tokens
+      const aiP = document.createElement('p');
+      aiP.style.margin = '0.5rem 0';
+      aiP.innerHTML = '<strong>Bot:</strong> ';
+      output.appendChild(aiP);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // process complete lines from buffer
+        while (true) {
+          const lineEnd = buffer.indexOf('\n');
+          if (lineEnd === -1) break;
+
+          const line = buffer.slice(0, lineEnd).trim();
+          buffer     = buffer.slice(lineEnd + 1);
+
+          if (!line.startsWith('data: ')) continue;   // ignore comments / blank lines
+
+          const data = line.slice(6);
+          if (data === '[DONE]') { buffer = ''; break; }
+
+          try {
+            const parsed  = JSON.parse(data);
+            const content = parsed.choices[0].delta?.content;
+            if (content) {
+              aiP.innerHTML += content.replace(/\n/g, '<br/>');
+              output.scrollTop = output.scrollHeight;
+            }
+          } catch (_) { /* ignore non-JSON lines */ }
+        }
       }
     } catch (error) {
-      output.innerHTML += `<p style="margin: 0.5rem 0; color: red;"><strong>Error:</strong> Failed to get response. Details: ${error.message}</p>`;
+      output.innerHTML += `<p style="margin: 0.5rem 0; color: red;"><strong>Error:</strong> ${error.message}</p>`;
     }
 
     document.getElementById('chat-input').value = '';
