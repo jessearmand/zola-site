@@ -90,6 +90,80 @@ const response = await fetch('/api/chat-proxy', {
 ```
 This way, the API key never leaves the server, and the implementation is secure.
 
+#### Handling Streamed Responses (SSE) in Plain JavaScript
+
+Because our serverless proxy returns the OpenRouter answer as a **Server-Sent
+Events (SSE) stream**, the browser must read it incrementally instead of
+waiting for a full JSON payload.  You can certainly use the OpenAI or Vercel AI
+SDKs, but doing it yourself is a great learning exercise.
+
+```javascript
+// POST the user question to the proxy
+const response = await fetch('/api/chat-proxy', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ question }),
+});
+
+if (!response.ok || !response.body) {
+  throw new Error(`HTTP ${response.status}`);
+}
+
+// ---- Read the SSE stream ----
+const reader  = response.body.getReader();
+const decoder = new TextDecoder();
+let   buffer  = '';
+
+// <p> element that grows as tokens arrive
+const aiP = document.createElement('p');
+aiP.innerHTML = '<strong>Bot:</strong> ';
+chatOutput.appendChild(aiP);
+
+while (true) {
+  const { done, value } = await reader.read();
+  if (done) break;
+
+  buffer += decoder.decode(value, { stream: true });
+
+  // Process complete lines from buffer
+  while (true) {
+    const lineEnd = buffer.indexOf('\n');
+    if (lineEnd === -1) break;
+
+    const line = buffer.slice(0, lineEnd).trim();
+    buffer     = buffer.slice(lineEnd + 1);
+
+    // Ignore keep-alive comments such as “: OPENROUTER PROCESSING”
+    if (!line.startsWith('data: ')) continue;
+
+    const data = line.slice(6);
+    if (data === '[DONE]') { buffer = ''; break; }
+
+    try {
+      const parsed  = JSON.parse(data);
+      const token   = parsed.choices[0].delta?.content;
+      if (token) {
+        aiP.innerHTML += token.replace(/\n/g, '<br/>');
+        chatOutput.scrollTop = chatOutput.scrollHeight;
+      }
+    } catch { /* ignore badly-formatted lines */ }
+  }
+}
+```
+
+Key take-aways:
+
+1.  `fetch` returns a `ReadableStream`; every chunk is decoded and added to
+    a buffer.
+2.  Per the SSE spec, each message is on its own line and starts with
+    “`data: `”.
+3.  The special string `[DONE]` marks the end of the stream.
+4.  Comment lines beginning with “:`” are keep-alive pings and can be
+    ignored.
+
+Using a library hides these details, but understanding the manual approach
+helps demystify how real-time LLM UIs work.
+
 ### 4. Add Navigation to the Chat Page
 
 To make the chat page accessible, I updated the footer links in my `config.toml` to include a link to the chat page:
