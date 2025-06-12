@@ -1,6 +1,6 @@
 +++
 title = "About Me"
-date = 2022-09-03T15:04:33+08:00
+date = 2025-06-12T23:46:00+08:00
 path = "about"
 +++
 
@@ -10,8 +10,14 @@ I am working as a Senior Software Engineer at [Screening Eagle](https://screenin
 
 I have been working on iOS platform since 2008. At that time, I was fascinated and intrigued by the iOS when Apple released the first SDK to developers all over the world with iPhone being hackable and having the same base system as OS X.
 
-Since then, I have worked mostly on mobile applications development on iOS, and will continue to do so for the native / web platform. In general, I'm looking forward to the potential of Swift development ecosystem as a full stack platform, in addition to macOS / iOS. However, throughout the years I have also dedicated some time into engineering work that is not necessarily specific to Apple's platform. 
+Since then, I have worked mostly on mobile applications development on iOS in Swift and Objective-C, and have continued to do so until around 2019 when COVID hits the world. I've explored running various software to interact with cameras or sensors such as LiDAR using ROS on a single board computer such as Raspberry Pi, Jetson, when NVIDIA have just started promoting AI on the edge. However these experimental projects don't produce anything commercially viable.
 
-But, on the frontend side basically there are only 3 choices available in order to make a career out of it. That is the *browser* which we call *the web* and Android or iOS on a mobile device or smartphone. Apart from that, it's likely that a VR headset such as Oculus Rift would become the next *frontend*, human interactions may no longer require physical presence. People will need a better interface to interact with the outside world and with each other.
+These explorations, particularly in robotics and the hands-on challenge of building and troubleshooting FPV drones, fundamentally shaped my perspective on software's interaction with physical hardware. I learned that when code directly controls dynamic systems, the stakes are incredibly tangible. Timing and efficiency are critical, and debugging requires a holistic understanding across both software logic and physical phenomena like electrical signals or thermal limits.
 
-As an analog to VR, an FPV headset is a cheaper and practical system that has been used by hobbyists and professionals. This is especially apparent in drone racing or FPV cinematic, and we can obviously see its application in robotics or any remote sensing application, where you need a live video feed of a remote operation. AR which is now popular in smartphones, will have a better form as a headset. If we couple a digital FPV headset with augmented reality layer, we would have a much better experience. As a company like [Orqa](https://orqafpv.com/) refers to this system as *Remote Reality*.
+Fast forward to 2024, with the release of visionOS, I felt a growing desire to move beyond traditional mobile apps, though I wasn't sure in what direction. Vision Pro is one of a kind, the most powerful "passthrough" headset system built on Apple's vision of augmented reality, and it has the most cleanest user interface framework that I've ever seen from these types of product: *SwiftUI at its best*. However it's not without problems, limitations from security or capabilities point of view. It's very expensive, and clearly it's not something that any business or an individual would invest on unlike the iPhone or even Mac, resulting in less demand to write applications for it.
+
+Coincidentally, this period also saw the significant rise of large language models, particularly after GPT-4's release.
+
+Ever since, I have also dabbled in learning about neural networks, training object detection and image segmentation models using PyTorch, and consequently I had to spend some time to learn more about computer vision, I went through the experience just like everybody else starting on machine learning. A year went by and once again, I realized that the field of machine learning seem to be filled with many academic or research projects that aren't going anywhere. A researcher could work on 10 different projects, probably 1 of them got published as an open source project on github, and that's it. I think that's the reality of research in any field, however fast forward until now, I think there's a paradigm shift after the rise of LLM.
+
+The capabilities of autoregressive transformer to predict the next tokens enhance our capabilities to produce knowledge, as is the case with diffusion models in generating images. This knowledge or impression or images could result in more knowledge, and many ideas and oppportunities opened up. As a result, I feel that I can learn anything that I want to learn, and the only limit is my own context window, credentials, access level, compute power, energy and money. This is where I am right now, and I'm not sure what will unfold in the future.
