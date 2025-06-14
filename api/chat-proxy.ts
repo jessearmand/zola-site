@@ -1,19 +1,27 @@
-import fs from 'fs/promises';
-import path from 'path';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { TextDecoder } from 'node:util';
 
-export default async function handler(req, res) {
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse
+): Promise<void> {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
+    res.status(405).json({ error: 'Method Not Allowed' });
+    return;
   }
 
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'API key not configured on the server. Contact the site administrator.' });
+    res.status(500).json({ error: 'API key not configured on the server. Contact the site administrator.' });
+    return;
   }
 
-  const { question } = req.body;
+  const { question } = (req.body as { question?: string });
   if (!question) {
-    return res.status(400).json({ error: 'No question provided.' });
+    res.status(400).json({ error: 'No question provided.' });
+    return;
   }
 
   // Read and sanitise resume data from markdown
@@ -64,16 +72,16 @@ export default async function handler(req, res) {
 
     try {
       // If running under Node (Vercel) we usually get a classic Readable stream
-      if (typeof openRouterRes.body.pipe === 'function') {
-        openRouterRes.body.pipe(res);
+      if (openRouterRes.body && typeof (openRouterRes.body as any).pipe === 'function') {
+        (openRouterRes.body as any).pipe(res);
 
-        openRouterRes.body.on('error', (err) => {
+        (openRouterRes.body as any).on('error', (err: any) => {
           res.write(`data: {"error":"${err.message}"}\n\n`);
           res.end();
         });
 
         // Ensure the client connection closes when the upstream stream ends
-        openRouterRes.body.on('end', () => res.end());
+        (openRouterRes.body as any).on('end', () => res.end());
 
       } else {
         // Fallback for Web ReadableStream (rare, but covers all runtimes)
@@ -88,11 +96,13 @@ export default async function handler(req, res) {
         res.end();
       }
     } catch (streamErr) {
-      res.write(`data: {"error":"${streamErr.message}"}\n\n`);
+      const err = streamErr as Error;
+      res.write(`data: {"error":"${err.message}"}\n\n`);
       res.end();
     }
     return;
   } catch (error) {
-    res.status(500).json({ error: error.message || 'Failed to process request.' });
+    const err = error as Error;
+    res.status(500).json({ error: err.message || 'Failed to process request.' });
   }
 }

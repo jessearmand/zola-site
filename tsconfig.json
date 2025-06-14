@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    /* Language / emit --------------------------- */
+    "target": "ES2022",              // matches the syntax Node 22 understands
+    "module": "NodeNext",            // ESM compatible & allowed with NodeNext resolution
+    "moduleResolution": "NodeNext",
+    "noEmit": true,                  // we only type-check locally
+    /* Type-safety ------------------------------ */
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true
+  },
+  "include": ["api/**/*.ts"],        // only check our serverless functions for now
+  "exclude": ["node_modules"]
+}
