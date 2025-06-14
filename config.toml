@@ -51,6 +51,7 @@ api_key = ""  # Deprecated: API key now managed via Vercel environment variables
 footer_links = [
     {url = "$BASE_URL/about", name = "About"},
     {url = "$BASE_URL/chat", name = "Chat with Resume"},
+    {url = "$BASE_URL/summary", name = "Summary"},
     {url = "$BASE_URL/atom.xml", name = "RSS"},
     {url = "https://github.com/carpetscheme/lightspeed", name = "Source on Github"},
 ]
