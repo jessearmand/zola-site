@@ -24,14 +24,24 @@ export default async function handler(
     return;
   }
 
-  // Read and sanitise resume data from markdown
+  // Read and sanitise context from *about.md* + *summary.md*
   let resumeData = '';
   try {
-    const aboutPath = path.join(process.cwd(), 'content', 'pages', 'about.md');
-    const raw = await fs.readFile(aboutPath, 'utf-8');
-    // strip +++ front-matter if present
-    resumeData = raw.replace(/^\+\+\+[\s\S]*?\+\+\+\s*/, '').trim();
-  } catch (_) {
+    const pagesDir = path.join(process.cwd(), 'content', 'pages');
+    const aboutPath   = path.join(pagesDir, 'about.md');
+    const summaryPath = path.join(pagesDir, 'summary.md');
+
+    const stripFrontMatter = (md: string) =>
+      md.replace(/^\+\+\+[\s\S]*?\+\+\+\s*/, '').trim();
+
+    const [aboutRaw = '', summaryRaw = ''] = await Promise.all([
+      fs.readFile(aboutPath,   'utf-8').catch(() => ''),
+      fs.readFile(summaryPath, 'utf-8').catch(() => ''),
+    ]);
+
+    resumeData = `${stripFrontMatter(aboutRaw)}\n\n${stripFrontMatter(summaryRaw)}`.trim();
+    if (!resumeData) resumeData = 'Resume data unavailable.';
+  } catch {
     resumeData = 'Resume data unavailable.';
   }
 
