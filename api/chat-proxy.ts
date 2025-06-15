@@ -90,6 +90,7 @@ export default async function handler(
       }
 
       /* ---- after OpenRouter finishes, add x.ai live-search ---- */
+      res.write('data: {"choices":[{"delta":{"content":"<br><hr><br>"}}]}\n\n');
       await streamXaiSearch();
     } catch (streamErr) {
       const err = streamErr as Error;
@@ -111,9 +112,9 @@ export default async function handler(
         'Content-Type':  'application/json',
       },
       body: JSON.stringify({
-        model: 'grok-3-mini',
+        model: 'grok-3-latest',
         stream: true,
-        messages: [{ role: 'user', content: `${question}\n\n---\nRésumé for context:\n${resumeData}` }],
+        messages: [{ role: 'user', content: question }],
         search_parameters: { mode: 'on', max_search_results: 5, return_citations: true }
       }),
     });
