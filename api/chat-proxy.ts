@@ -56,6 +56,7 @@ export default async function handler(
       },
       body: JSON.stringify({
         model: 'openai/gpt-4.1-mini',
+        max_tokens: 1000000,
         stream: true,
         messages: [
           {
@@ -113,6 +114,7 @@ export default async function handler(
       },
       body: JSON.stringify({
         model: 'grok-3-latest',
+        max_tokens: 131000,
         stream: true,
         messages: [{ role: 'user', content: question }],
         search_parameters: { mode: 'on', max_search_results: 5, return_citations: true }
