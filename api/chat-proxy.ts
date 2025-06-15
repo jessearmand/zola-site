@@ -55,17 +55,9 @@ export default async function handler(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        // enable real-time web search grounding
         model: 'openai/gpt-4.1-mini:online',
         stream: true,
-
-        // enable real-time web search grounding
-        plugins: [
-          { id: 'web', max_results: 5 }    // limit to five results
-        ],
-        web_search_options: {
-          search_context_size: 'low'       // minimal context to control cost
-        },
-
         messages: [
           {
             role: 'system',
@@ -76,6 +68,9 @@ export default async function handler(
             content: question
           }
         ],
+        web_search_options: {
+          search_context_size: 'low'       // minimal context to control cost
+        },
       }),
     });
     if (!openRouterRes.ok || !openRouterRes.body) {
