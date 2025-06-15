@@ -60,12 +60,9 @@ export default async function handler(
         stream: true,
         messages: [
           {
-            role: 'system',
-            content: `As a critical and smart thinker, provide answer and consultation to questions based on the following resume: ${resumeData}`
-          },
-          {
             role: 'user',
-            content: question
+            // Combine visitor question + résumé for grounding
+            content: `${question}\n\n---\nRésumé for context:\n${resumeData}`
           }
         ],
         web_search_options: {
