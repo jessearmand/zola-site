@@ -30,6 +30,7 @@
 <!-- JavaScript for LLM interaction -->
 <script>
   async function sendMessage() {
+    const citations = new Map();   // url  -> title (or ‘’)
     const input = document.getElementById('chat-input').value.trim();
     if (!input) {
       alert('Please enter a question before sending.');
@@ -82,16 +83,38 @@
 
           try {
             const parsed  = JSON.parse(data);
-            const content = parsed.choices[0].delta?.content;
+            const delta   = parsed.choices[0].delta || {};
+            const content = delta.content;
             if (content) {
               aiP.innerHTML += content.replace(/\n/g, '<br/>');
               output.scrollTop = output.scrollHeight;
+            }
+
+            // ---- collect web-search citations ----
+            if (delta.annotations) {
+              delta.annotations.forEach(a => {
+                if (a.type === 'url_citation' && a.url_citation?.url) {
+                  const { url, title = '' } = a.url_citation;
+                  citations.set(url, title);
+                }
+              });
             }
           } catch (_) { /* ignore non-JSON lines */ }
         }
       }
     } catch (error) {
       output.innerHTML += `<p style="margin: 0.5rem 0; color: red;"><strong>Error:</strong> ${error.message}</p>`;
+    }
+
+    if (citations.size) {
+      const srcP = document.createElement('p');
+      srcP.style.cssText = 'margin:0.5rem 0;font-size:90%;';
+      const links = [...citations.keys()].map(u => {
+        const domain = u.replace(/^https?:\/\/(www\.)?/, '').split('/')[0];
+        return `<a href="${u}" target="_blank" rel="noopener">${domain}</a>`;
+      });
+      srcP.innerHTML = `<em>Sources:</em> ${links.join(', ')}`;
+      output.appendChild(srcP);
     }
 
     document.getElementById('chat-input').value = '';
