@@ -55,8 +55,7 @@ export default async function handler(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        // enable real-time web search grounding
-        model: 'openai/gpt-4.1-mini:online',
+        model: 'openai/gpt-4.1-mini',
         stream: true,
         messages: [
           {
@@ -64,10 +63,7 @@ export default async function handler(
             // Combine visitor question + résumé for grounding
             content: `${question}\n\n---\nRésumé for context:\n${resumeData}`
           }
-        ],
-        web_search_options: {
-          search_context_size: 'low'       // minimal context to control cost
-        },
+        ]
       }),
     });
     if (!openRouterRes.ok || !openRouterRes.body) {
@@ -126,9 +122,9 @@ export default async function handler(
         'Content-Type':  'application/json',
       },
       body: JSON.stringify({
-        model: 'grok-3-latest',
+        model: 'grok-3-mini',
         stream: true,
-        messages: [{ role: 'user', content: question }],
+        messages: [{ role: 'user', content: `${question}\n\n---\nRésumé for context:\n${resumeData}` }],
         search_parameters: { mode: 'on', max_search_results: 5, return_citations: true }
       }),
     });
