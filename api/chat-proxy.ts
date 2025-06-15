@@ -116,7 +116,7 @@ export default async function handler(
         model: 'grok-3-latest',
         max_tokens: 131000,
         stream: true,
-        messages: [{ role: 'user', content: `Be concise, critical, but helpful to answer the question given: ${question} about X user @jessearmand` }],
+        messages: [{ role: 'user', content: `Be concise, critical, but helpful to answer the question given: ${question} @jessearmand` }],
         search_parameters: { mode: 'on', max_search_results: 5, return_citations: true }
       }),
     });

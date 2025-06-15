@@ -57,7 +57,7 @@
       let   buffer   = '';
 
       // paragraph that will receive incremental tokens
-      const aiP = document.createElement('p');
+      let aiP = document.createElement('p');
       aiP.style.margin = '0.5rem 0';
       aiP.innerHTML = '<strong>Bot:</strong> ';
       output.appendChild(aiP);
@@ -85,6 +85,22 @@
             const parsed  = JSON.parse(data);
             const delta   = parsed.choices[0].delta || {};
             const content = delta.content;
+
+            // Check for our special separator signal from the server
+            if (content === '<br><hr><br>') {
+              // 1. Append a visual separator to the main output
+              const hr = document.createElement('hr');
+              hr.style.cssText = 'margin: 0.8rem 0; border: none; border-top: 1px solid #eee;';
+              output.appendChild(hr);
+
+              // 2. Create a new paragraph for the live search results
+              aiP = document.createElement('p');
+              aiP.style.margin = '0.5rem 0';
+              aiP.innerHTML = '<strong>Live Search:</strong> ';
+              output.appendChild(aiP);
+              continue; // Skip to the next line, don't render the signal
+            }
+
             if (content) {
               aiP.innerHTML += content.replace(/\n/g, '<br/>');
               output.scrollTop = output.scrollHeight;
