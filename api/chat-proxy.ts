@@ -78,30 +78,19 @@ export default async function handler(
     });
 
     try {
-      // If running under Node (Vercel) we usually get a classic Readable stream
-      if (openRouterRes.body && typeof (openRouterRes.body as any).pipe === 'function') {
-        // keep connection open so we can add live-search results later
-        (openRouterRes.body as any).pipe(res, { end: false });
-
-        (openRouterRes.body as any).on('error', (err: any) => {
-          res.write(`data: {"error":"${err.message}"}\n\n`);
-          res.end();
-        });
-
-        (openRouterRes.body as any).on('end', () => { void streamXaiSearch(); });
-
-      } else {
-        // Fallback for Web ReadableStream (rare, but covers all runtimes)
-        const reader = openRouterRes.body.getReader();
-        const decoder = new TextDecoder();
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          res.write(decoder.decode(value));
+      /* ---- stream OpenRouter tokens ---- */
+      try {
+        for await (const chunk of openRouterRes.body as any) {
+          res.write(chunk);
         }
-        await streamXaiSearch();
+      } catch (err: any) {
+        res.write(`data: {"error":"${err.message}"}\n\n`);
+        res.end();
+        return;
       }
+
+      /* ---- after OpenRouter finishes, add x.ai live-search ---- */
+      await streamXaiSearch();
     } catch (streamErr) {
       const err = streamErr as Error;
       res.write(`data: {"error":"${err.message}"}\n\n`);
@@ -131,20 +120,13 @@ export default async function handler(
 
     if (!xaiRes.ok || !xaiRes.body) { res.end(); return; }
 
-    // Node stream available?
-    if (typeof (xaiRes.body as any).pipe === 'function') {
-      (xaiRes.body as any).pipe(res, { end: false });
-      (xaiRes.body as any).on('end', () => res.end());
-    } else {
-      const reader  = xaiRes.body.getReader();
-      const decoder = new TextDecoder();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        res.write(decoder.decode(value));
+    try {
+      for await (const chunk of xaiRes.body as any) {
+        res.write(chunk);
       }
-      res.end();
-    }
+    } catch {/* ignore streaming errors from optional search */}
+
+    res.end();
   }
   } catch (error) {
     const err = error as Error;
