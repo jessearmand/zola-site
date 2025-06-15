@@ -99,6 +99,13 @@
                 }
               });
             }
+
+            // ---- x.ai live-search citations (list in last chunk) ----
+            if (parsed.citations) {
+              parsed.citations.forEach((url) => {
+                citations.set(url, '');
+              });
+            }
           } catch (_) { /* ignore non-JSON lines */ }
         }
       }
