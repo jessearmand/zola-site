@@ -55,7 +55,7 @@ export default async function handler(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'openai/gpt-4.1-mini',
+        model: 'openai/gpt-4.1-mini:online',
         stream: true,
 
         // enable real-time web search grounding
