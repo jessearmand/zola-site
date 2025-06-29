@@ -76,15 +76,25 @@
           const line = buffer.slice(0, lineEnd).trim();
           buffer     = buffer.slice(lineEnd + 1);
 
+          if (line.startsWith('event:')) continue; // Ignore event type lines
           if (!line.startsWith('data: ')) continue;   // ignore comments / blank lines
 
           const data = line.slice(6);
           if (data === '[DONE]') continue; // Ignore the first stream's DONE signal
 
           try {
-            const parsed  = JSON.parse(data);
-            const delta   = parsed.choices[0].delta || {};
-            const content = delta.content;
+            const parsed = JSON.parse(data);
+            let content = '';
+
+            // --- Handle content streaming ---
+            // New OpenAI Responses API format
+            if (parsed.type === 'response.output_text.delta') {
+              content = parsed.delta || '';
+            }
+            // Old Chat Completions API format (OpenRouter/xAI)
+            else if (parsed.choices && parsed.choices[0].delta) {
+              content = parsed.choices[0].delta.content || '';
+            }
 
             // Check for our special separator signal from the server
             if (content === '<br><hr><br>') {
@@ -106,9 +116,25 @@
               output.scrollTop = output.scrollHeight;
             }
 
-            // ---- collect web-search citations ----
-            if (delta.annotations) {
-              delta.annotations.forEach(a => {
+            // --- Handle citation collection ---
+            // New OpenAI Responses API format
+            if (parsed.type === 'response.completed' && parsed.response?.output) {
+              parsed.response.output.forEach(item => {
+                if (item.type !== 'message' || !item.content) return;
+                item.content.forEach(part => {
+                  if (part.type !== 'output_text' || !part.annotations) return;
+                  part.annotations.forEach(a => {
+                    if (a.type === 'url_citation' && a.url) {
+                      citations.set(a.url, a.title || '');
+                    }
+                  });
+                });
+              });
+            }
+
+            // Old Chat Completions format (OpenRouter)
+            if (parsed.choices && parsed.choices[0].delta?.annotations) {
+              parsed.choices[0].delta.annotations.forEach(a => {
                 if (a.type === 'url_citation' && a.url_citation?.url) {
                   const { url, title = '' } = a.url_citation;
                   citations.set(url, title);
@@ -116,7 +142,7 @@
               });
             }
 
-            // ---- x.ai live-search citations (list in last chunk) ----
+            // Old Chat Completions format (xAI)
             if (parsed.citations) {
               parsed.citations.forEach((url) => {
                 citations.set(url, '');
@@ -134,7 +160,8 @@
       srcP.style.cssText = 'margin:0.5rem 0;font-size:90%;';
       const links = [...citations.keys()].map(u => {
         const domain = u.replace(/^https?:\/\/(www\.)?/, '').split('/')[0];
-        return `<a href="${u}" target="_blank" rel="noopener">${domain}</a>`;
+        const title = citations.get(u) || '';
+        return `<a href="${u}" target="_blank" rel="noopener" title="${title}">${domain}</a>`;
       });
       srcP.innerHTML = `<em>Sources:</em> ${links.join(', ')}`;
       output.appendChild(srcP);
