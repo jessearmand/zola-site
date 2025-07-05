@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { getVectorStoreId } from '../vector_store/vector-store-config.js';
 
 // Determine which search provider to use based on environment variables.
 // Defaults to 'openai_web_search' if SEARCH_PROVIDER is not set.
@@ -56,6 +57,30 @@ async function streamOpenaiWebSearch(res: VercelResponse, question: string, resu
     return;
   }
 
+  // Get vector store ID for file search
+  const vectorStoreId = getVectorStoreId();
+
+  // Build tools array - always include web search, add file search if available
+  const tools: Array<{
+    type: "web_search_preview";
+    search_context_size: "medium";
+  } | {
+    type: "file_search";
+    vector_store_ids: string[];
+  }> = [
+    {
+      type: "web_search_preview",
+      search_context_size: "medium"
+    }
+  ];
+
+  if (vectorStoreId) {
+    tools.push({
+      type: "file_search",
+      vector_store_ids: [vectorStoreId]
+    });
+  }
+
   const apiRes = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
     headers: {
@@ -66,12 +91,7 @@ async function streamOpenaiWebSearch(res: VercelResponse, question: string, resu
       model: 'gpt-4.1-mini',
       stream: true,
       input: `Be concise, critical, but helpful to answer the question given: ${question}\n\n---\nRésumé for context:\n${resumeData}`,
-      tools: [
-        {
-          type: "web_search_preview",
-          search_context_size: "medium"
-        }
-      ],
+      tools,
     }),
   });
 
@@ -202,14 +222,12 @@ async function getResumeData(): Promise<string> {
   try {
     const pagesDir = path.join(process.cwd(), 'content', 'pages');
     const aboutPath = path.join(pagesDir, 'about.md');
-    const summaryPath = path.join(pagesDir, 'summary.md');
 
     const stripFrontMatter = (md: string) =>
       md.replace(/^\+\+\+[\s\S]*?\+\+\+\s*/, '').trim();
 
     const [aboutRaw = '', summaryRaw = ''] = await Promise.all([
-      fs.readFile(aboutPath, 'utf-8').catch(() => ''),
-      fs.readFile(summaryPath, 'utf-8').catch(() => ''),
+      fs.readFile(aboutPath, 'utf-8').catch(() => '')
     ]);
 
     const resumeData = `${stripFrontMatter(aboutRaw)}\n\n${stripFrontMatter(summaryRaw)}`.trim();
