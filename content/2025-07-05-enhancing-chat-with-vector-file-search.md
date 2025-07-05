@@ -1,5 +1,5 @@
 +++
-title = "Enhancing Chat with Vector File Search: Adding Context to Resume Conversations"
+title = "Enhancing Chat with Vector File Search"
 date = 2025-07-05T14:30:00+08:00
 tags = ["openai", "vector search", "file search", "chat", "AI", "LLM"]
 +++
