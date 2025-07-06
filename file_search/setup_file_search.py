@@ -217,8 +217,8 @@ def create_test_file(vector_store_id: str):
     query = "Summarize the overall theme of these blog posts, and who is the author"
     test_content = f'''#!/usr/bin/env python3
 
-import os
 from openai import OpenAI
+
 
 def test_file_search():
     """Test file search functionality with uploaded blog posts"""

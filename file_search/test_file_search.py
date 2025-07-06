@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-import os
 from openai import OpenAI
+
 
 def test_file_search():
     """Test file search functionality with uploaded blog posts"""
