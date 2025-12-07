@@ -34,9 +34,7 @@ These SDKs exist so a company can claim "we have an SDK," not to seed a real thi
 
 You don't have to take my word for it. Just browse the GitHub repos for the official SDKs: [CameraSDK-Android](https://github.com/Insta360Develop/CameraSDK-Android/issues), [iOS-SDK](https://github.com/Insta360Develop/iOS-SDK/issues), and [Insta360_OSC](https://github.com/Insta360Develop/Insta360_OSC/issues).
 
-What you find isn't a list of issues. It's a **graveyard of silent failures**.
-
-I'm not talking about exotic edge cases. I mean fundamental functionality. These examples are from the Android SDK repository:
+What you find isn't a list of exotic edge cases. It's fundamental functionality that doesn't work reliably. These examples are from the Android SDK repository:
 
 - Developers debugging for weeks why their apps crash instantly when opening a preview stream ([Issue #115](https://github.com/Insta360Develop/CameraSDK-Android/issues/115)).
 - Capture listeners, callbacks that tell your app "the camera finished taking a photo," simply not triggering on newer models ([Issue #108](https://github.com/Insta360Develop/CameraSDK-Android/issues/108)).
@@ -97,6 +95,40 @@ The result:
 - "Just ship it" engineering culture
 
 You can feel all of this in the SDKs: inconsistent error handling, missing documentation, features bolted onto brittle codepaths.
+
+---
+
+## Is It Fixable?
+
+The software problems at companies like Insta360 and DJI are real and structural, but they're not fundamental. This is accumulated neglect, not irreparable architectural damage. The underlying capabilities exist: these companies have working video processing pipelines, functional device communication layers, rendering engines that produce acceptable output. What they lack is the layer of polish, reliability, and developer experience that separates professional software from adequate software.
+
+The tooling has also matured in ways that make this more tractable than it would have been five years ago. Modern systems languages like Rust offer memory safety without garbage collection overhead—ideal for real-time video processing. Zig is emerging as an option for people who want C-level control with better ergonomics. The Rust developer community in China is growing rapidly. Cross-platform frameworks have improved to the point where you can build consistent experiences across iOS, Android, and desktop without maintaining three separate codebases.
+
+What's missing is software leadership: people who understand what good looks like and have the organizational authority to make it happen. Not just technical leads, but people who can make the case to executives that software quality is a strategic priority, not a cost center. People who can recruit and retain good engineers. People who can shield their teams from the deadline pressure that produces rushed, buggy releases.
+
+---
+
+## The Profit Margin Trap
+
+Here's where things get complicated, and where I have more sympathy for these companies than my frustration might suggest.
+
+Apple can afford massive software investment because they make enormous margins on hardware and have built recurring revenue streams through services. When you buy a $500 Insta360 X5, Insta360's margin on that sale is thin—they're competing with DJI on price, they're paying for components that have gotten more expensive, and they're running a manufacturing operation with significant fixed costs. There's not a lot of room in that margin to fund a hundred-person software engineering team.
+
+Apple sells a $1,200 iPhone with 40%+ gross margins, then extracts $15/month from you for iCloud storage, then sells you Apple Music and Apple TV+ and Apple Fitness+. They have multiple revenue streams that fund software development, and their hardware margins are high enough to absorb significant R&D costs.
+
+Insta360 sells you a camera once. Maybe you buy some accessories. Maybe you upgrade in two or three years. That's it. The entire revenue they'll ever extract from you has to cover the cost of building the hardware, the software, the support infrastructure, and leave something for profit.
+
+This creates a structural underinvestment in software even when leadership understands its importance. You can't fund a world-class software team on thin hardware margins. The math doesn't work. So software becomes "good enough"—sufficient to not actively prevent sales, but never excellent enough to be a competitive advantage.
+
+The possible escape routes are:
+
+**Subscription models.** GoPro has tried this with their GoPro Subscription service, bundling cloud storage, editing tools, and camera replacement insurance. The execution has been clumsy, and it feels like nickel-and-diming for features that should be included. But the strategic logic is sound: recurring revenue funds ongoing software development in a way that one-time hardware sales can't.
+
+**Ecosystem lock-in.** DJI is attempting this with the Osmo Mic integration—if you've invested in DJI audio accessories, you're more likely to buy DJI cameras. The problem is that ecosystem lock-in only works if the ecosystem is pleasant to use. If the software is painful, users will avoid going deeper into the ecosystem rather than embracing it.
+
+**Premium pricing.** Leica charges astronomical prices for cameras and uses the margin to fund a smaller, higher-quality operation. But this only works for luxury brands with heritage. Insta360 and DJI are competing on features and value, not prestige.
+
+**Acquisition.** If Apple, Google, or Adobe bought Insta360, they'd have hardware expertise they currently lack, and they could rebuild the software with their own teams and resources. This is actually the most likely path to great Insta360 software—but it would involve the company ceasing to exist as an independent entity.
 
 ---
 
@@ -349,75 +381,28 @@ Developers will flock to Apple's APIs. And the current players will be racing to
 
 If Insta360, DJI, and GoPro want to stay relevant, software must become a first-class function, not an afterthought.
 
-That means:
+This means organizational change: software leadership with authority to delay hardware launches when SDKs aren't ready, competitive compensation for engineers, and metrics that reflect software quality alongside unit sales.
 
-### 1. Software Leadership with Authority
+**Treat API contracts as commitments, not suggestions.** The pattern across these SDKs is that behavior changes silently between camera generations. What works on the X4 breaks on the X5 without changelog entries, migration guides, or deprecation warnings. Big organizations tend to ignore API stability because it doesn't show up in feature announcements—but it's exactly what determines whether developers can build reliably on your platform. Semantic versioning, explicit deprecation cycles, and behavioral consistency aren't glamorous, but they're what separates a platform from a product.
 
-Leaders who can say "the SDK isn't ready; the launch must slip."
+**Close the feedback loop with the developer ecosystem.** The GitHub issue trackers are full of detailed bug reports from developers who've done the debugging work. They've identified root causes, provided reproduction steps, and suggested fixes. These reports sit without acknowledgment. The organizational failure isn't that bugs exist—it's that there's no visible process for triaging, prioritizing, or communicating status. Even a "won't fix" is more valuable than silence.
 
-### 2. Developer Experience as a Product
+**Own the niches Apple won't touch.** Apple will dominate convenience and the general consumer market. Camera companies must dominate capability: extreme durability, 360° capture, professional mounting scenarios, robotics vision systems, long-duration capture, and high-FOV sensors. This is a smaller market than "consumer photography," but it's defensible.
 
-Fix the silent failures.
-
-Document behavior.
-
-Stabilize APIs.
-
-Stop breaking things quietly.
-
-Design SDKs like they matter.
-
-Because they do.
-
-### 3. Own the Niches Apple Won't Touch
-
-Apple will dominate convenience.
-
-Camera companies must dominate capability:
-
-- extreme durability
-- niche form factors
-- 360° capture
-- multi-camera rigs
-- robotics vision systems
-- long-duration capture
-- high-FOV sensors
-
-These markets are smaller, but defensible.
-
-### 4. Embrace the Machine Vision Era
-
-The robotics and AI markets are enormous.
-
-But only reliable, programmatic access to your hardware unlocks them.
-
-Right now, the industry is actively throwing that opportunity away.
+**Invest in developer experience as a strategic asset.** Professional users, researchers, and developers are high-margin customers who will pay for products that work reliably. But they'll only buy products they can actually integrate into their workflows. That means accurate documentation, stable APIs, and not breaking integrations with firmware updates.
 
 ---
 
 ## Where I Really Am on This
 
-I began writing out of frustration, and I'm ending somewhere between pragmatism and pessimism.
+I started this essay frustrated, and I'm ending it somewhere between pragmatism and pessimism.
 
 The hardware being built today is extraordinary. I love working with 360° footage and spatial video. But every time I interact with the SDKs or the apps, I'm reminded how much friction remains between "impressive technology" and "delightful product."
 
 DJI has proven it can execute world-class products when it prioritizes something. Insta360's hardware innovation is real: they've repeatedly pushed their categories forward. The raw capability exists.
 
-What's missing is recognition that in 2025, a camera is no longer just a box with lenses.
+What's missing is the recognition that software isn't just a cost center—it's the difference between a tool and a platform, between something that enthusiasts tolerate and something that normal people love, between a company that gets disrupted by Apple and a company that builds a defensible business.
 
-A camera is a **software-defined sensor at the edge of a computational ecosystem**.
+I don't know if that recognition will come in time. The structural pressures I've described are real, and organizational change is hard. But the technology exists to build great camera software, and the talent exists to build it if companies can attract and retain it. The question is whether hardware-first companies can evolve before software-first companies like Apple make their hardware irrelevant.
 
-Software isn't a cost center.
-
-It's the difference between:
-
-- a tool and a platform
-- a novelty and a necessity
-- a product enthusiasts tolerate and a product normal people love
-- winning the AI/robotics market or being erased from it
-
-Whether hardware-first camera companies can evolve before software-first giants reshape the category is an open question.
-
-But the window is shrinking.
-
-If someone from Insta360 or DJI wants to tell me I'm wrong, that they're investing heavily in software quality and it just hasn't shipped yet, I would love to be wrong. Truly.
+If someone from Insta360 or DJI wants to tell me I'm wrong—that they're investing heavily in software quality and it just hasn't shipped yet—I would be glad to hear it.
