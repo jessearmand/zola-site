@@ -1,5 +1,5 @@
 +++
-title = "The Camera Industry's Software Problem: A Lens from the Codebase"
+title = "Camera Industry's Software Problem: A Lens from the Codebase"
 date = 2025-12-07T00:00:00+08:00
 tags = ["cameras", "software", "SDK", "360 cameras", "DJI", "Insta360", "robotics", "machine vision", "AI"]
 +++
