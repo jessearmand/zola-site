@@ -62,7 +62,7 @@ That heritage shapes everything:
 
 - Their best engineers work on hardware: sensor tuning, stabilizing algorithms, gimbals, custom silicon, thermal models.
 - Software is viewed as **COGS**: a cost required to make hardware shippable, not a product in itself.
-- SDKs are maintained by whoever has bandwidth, often junior staff or contractors.
+- SDKs are maintained by whoever has bandwidth, they can be junior staff or contractors.
 - Tools, documentation, and developer experience are subordinate to hardware deadlines.
 
 When the hardware team says, "We launch on the 15th," the software team ships whatever they have. Quality is optional. Schedules are not.
