@@ -1,11 +1,30 @@
 #!/usr/bin/env python3
 
+import hashlib
 import json
 import time
 from pathlib import Path
 from typing import Dict, List, Set
 
 from openai import OpenAI
+
+
+def compute_file_hash(file_path: str) -> str:
+    """Compute SHA-256 hash of file content"""
+    with open(file_path, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+
+def load_file_hashes() -> Dict[str, str]:
+    """Load previously stored file hashes from config"""
+    config_path = Path("../vector_store/config.json")
+    if not config_path.exists():
+        return {}
+
+    with open(config_path) as f:
+        config = json.load(f)
+
+    return config.get("file_hashes", {})
 
 
 def setup_file_search():
@@ -18,24 +37,27 @@ def setup_file_search():
     print("Step 0: Checking existing resources...")
     existing_files = list_existing_files(client)
     existing_vector_stores = list_existing_vector_stores(client)
+    stored_hashes = load_file_hashes()
 
-    # Step 1: Find and upload files
-    print("Step 1: Uploading files to OpenAI File API...")
-    file_ids = upload_files(client, existing_files)
-
-    # Step 2: Create or reuse vector store
-    print("Step 2: Creating or reusing vector store...")
+    # Step 1: Create or reuse vector store (need ID for file operations)
+    print("Step 1: Creating or reusing vector store...")
     vector_store = create_or_get_vector_store(
         client, "zola_posts", existing_vector_stores
+    )
+
+    # Step 2: Find and upload files (with change detection)
+    print("Step 2: Uploading files to OpenAI File API...")
+    file_ids, new_hashes = upload_files(
+        client, existing_files, stored_hashes, vector_store.id
     )
 
     # Step 3: Add files to vector store and check status
     print("Step 3: Adding files to vector store...")
     add_files_to_vector_store(client, vector_store.id, file_ids)
 
-    # Step 4: Save vector store IDs to module
-    print("Step 4: Saving vector store IDs...")
-    save_vector_store_config(vector_store.id)
+    # Step 4: Save vector store IDs and file hashes
+    print("Step 4: Saving configuration...")
+    save_vector_store_config(vector_store.id, new_hashes)
 
     # Step 5: Create test file
     print("Step 5: Creating test file...")
@@ -89,19 +111,36 @@ def get_files_to_upload() -> List[str]:
     return files
 
 
-def upload_files(client: OpenAI, existing_files: Dict[str, str]) -> List[str]:
-    """Upload files to OpenAI File API, skipping existing ones"""
+def upload_files(
+    client: OpenAI,
+    existing_files: Dict[str, str],
+    stored_hashes: Dict[str, str],
+    vector_store_id: str,
+) -> tuple[List[str], Dict[str, str]]:
+    """Upload files to OpenAI File API, detecting and replacing changed files"""
     files_to_upload = get_files_to_upload()
     file_ids = []
+    new_hashes = {}
 
     for file_path in files_to_upload:
         file_name = Path(file_path).name
+        current_hash = compute_file_hash(file_path)
+        new_hashes[file_name] = current_hash
 
-        # Check if file already exists
+        # Check if file exists and whether it has changed
         if file_name in existing_files:
-            print(f"  ⏭️  Skipping existing file: {file_path}")
-            file_ids.append(existing_files[file_name])
-            continue
+            old_file_id = existing_files[file_name]
+            stored_hash = stored_hashes.get(file_name)
+
+            if stored_hash == current_hash:
+                print(f"  ⏭️  Unchanged: {file_path}")
+                file_ids.append(old_file_id)
+                continue
+
+            # File has changed - delete old and upload new
+            print(f"  🔄 File changed: {file_path}")
+            delete_file_from_vector_store(client, vector_store_id, old_file_id)
+            delete_file_from_storage(client, old_file_id)
 
         print(f"  📤 Uploading: {file_path}")
 
@@ -110,7 +149,31 @@ def upload_files(client: OpenAI, existing_files: Dict[str, str]) -> List[str]:
             file_ids.append(result.id)
             print(f"    ✅ File ID: {result.id}")
 
-    return file_ids
+    return file_ids, new_hashes
+
+
+def delete_file_from_vector_store(
+    client: OpenAI, vector_store_id: str, file_id: str
+) -> None:
+    """Remove a file from the vector store"""
+    print(f"    🗑️  Removing {file_id} from vector store...")
+    try:
+        client.vector_stores.files.delete(
+            vector_store_id=vector_store_id, file_id=file_id
+        )
+        print("    ✅ Removed from vector store")
+    except Exception as e:
+        print(f"    ⚠️  Could not remove from vector store: {e}")
+
+
+def delete_file_from_storage(client: OpenAI, file_id: str) -> None:
+    """Delete a file from OpenAI storage"""
+    print(f"    🗑️  Deleting {file_id} from storage...")
+    try:
+        client.files.delete(file_id)
+        print("    ✅ Deleted from storage")
+    except Exception as e:
+        print(f"    ⚠️  Could not delete from storage: {e}")
 
 
 def create_or_get_vector_store(
@@ -196,9 +259,13 @@ def add_files_to_vector_store(
         time.sleep(2)
 
 
-def save_vector_store_config(vector_store_id: str):
-    """Save vector store configuration to a module file"""
-    config = {"vector_store_id": vector_store_id, "name": "zola_posts"}
+def save_vector_store_config(vector_store_id: str, file_hashes: Dict[str, str]):
+    """Save vector store configuration and file hashes"""
+    config = {
+        "vector_store_id": vector_store_id,
+        "name": "zola_posts",
+        "file_hashes": file_hashes,
+    }
 
     # Create vector_store directory if it doesn't exist
     vector_store_dir = Path("../vector_store")
@@ -209,6 +276,7 @@ def save_vector_store_config(vector_store_id: str):
         json.dump(config, f, indent=2)
 
     print(f"  ✅ Configuration saved to {config_path}")
+    print(f"  ✅ Stored hashes for {len(file_hashes)} files")
 
 
 def create_test_file(vector_store_id: str):
