@@ -10,7 +10,7 @@ This isn't a rant about bad documentation. It's an attempt to understand why the
 
 ---
 
-## The State of Things: Hardware Paradise, Software Purgatory
+## The State of Things: Hardware Paradise, Software Neglect
 
 Let me start by giving credit where it's due.
 
@@ -32,16 +32,19 @@ These SDKs exist so a company can claim "we have an SDK," not to seed a real thi
 
 ## The Silent Failure Culture
 
-You don't have to take my word for it. Just browse the GitHub repos for the official SDKs.
+You don't have to take my word for it. Just browse the GitHub repos for the official SDKs: [CameraSDK-Android](https://github.com/Insta360Develop/CameraSDK-Android/issues), [iOS-SDK](https://github.com/Insta360Develop/iOS-SDK/issues), and [Insta360_OSC](https://github.com/Insta360Develop/Insta360_OSC/issues).
 
 What you find isn't a list of issues. It's a **graveyard of silent failures**.
 
-I'm not talking about exotic edge cases. I mean fundamental functionality. For example:
+I'm not talking about exotic edge cases. I mean fundamental functionality. These examples are from the Android SDK repository:
 
-- Developers debugging for weeks why their apps crash instantly when opening a preview stream (Android Issue #115).
-- Capture listeners, callbacks that tell your app "the camera finished taking a photo," simply not triggering on newer models (Issue #108).
-- APIs that worked for the X3 and X4 quietly breaking on the X5 without a single line of documentation explaining the change.
-- Critical issues acknowledged by multiple developers across months, with zero official response.
+- Developers debugging for weeks why their apps crash instantly when opening a preview stream ([Issue #115](https://github.com/Insta360Develop/CameraSDK-Android/issues/115)).
+- Capture listeners, callbacks that tell your app "the camera finished taking a photo," simply not triggering on newer models ([Issue #108](https://github.com/Insta360Develop/CameraSDK-Android/issues/108)).
+- Basic record commands like `startNormalCapture`, `startHDRCapture`, and `startNormalRecord` failing to function correctly on the X5 ([Issue #109](https://github.com/Insta360Develop/CameraSDK-Android/issues/109)).
+- Android 14 connection failures over Wi-Fi, a critical blocker for any modern mobile app ([Issue #66](https://github.com/Insta360Develop/CameraSDK-Android/issues/66)).
+- Software updates breaking older hardware support, with capture status listeners going silent on the X2 after an upgrade ([Issue #112](https://github.com/Insta360Develop/CameraSDK-Android/issues/112)).
+
+APIs that worked for the X3 and X4 quietly broke on the X5 without a single line of documentation explaining the change. Critical issues acknowledged by multiple developers across months sit with zero official response.
 
 This creates a development environment where you're not simply writing code: you're constantly reverse-engineering the device just to detect which parts of the API are real and which are illusions.
 
