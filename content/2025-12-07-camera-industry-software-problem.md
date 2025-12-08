@@ -79,8 +79,13 @@ You can:
 
 - Work at Apple, shipping apps used by billions.
 - Join Google or Meta and work on cutting-edge ML or CV.
+- Join a frontier AI lab—OpenAI, Anthropic, xAI, or DeepMind—building applications on foundation models.
 - Join a startup with real equity upside.
 - Or… work on a camera company's mobile app team, maintaining an overburdened editing interface that gets deprioritized whenever a new camera is about to launch.
+
+The gravitational pull toward frontier AI companies is particularly strong right now. The best mobile, frontend, and backend engineers are flocking to labs building the next generation of AI applications. The compensation is competitive, the problems are novel, and the sense of working on something historically significant is hard to match.
+
+There's also a structural shift happening in mobile development itself. Cross-platform frameworks—React Native, Flutter, Kotlin Multiplatform—have become mature enough that many companies are consolidating their mobile teams. Native iOS and Android specialists are finding fewer opportunities unless they work at companies where platform-specific optimization genuinely matters. For hardware companies that aren't operating at the frontier of what's possible, this compounds the recruiting problem: why specialize in native development for a camera app when the industry is moving toward cross-platform, and the most interesting native work is happening at Apple or in AI labs?
 
 It's not hard to see why recruiting world-class software engineers is difficult for hardware-centric companies.
 
@@ -128,7 +133,7 @@ The possible escape routes are:
 
 **Premium pricing.** Leica charges astronomical prices for cameras and uses the margin to fund a smaller, higher-quality operation. But this only works for luxury brands with heritage. Insta360 and DJI are competing on features and value, not prestige.
 
-**Acquisition.** If Apple, Google, or Adobe bought Insta360, they'd have hardware expertise they currently lack, and they could rebuild the software with their own teams and resources. This is actually the most likely path to great Insta360 software—but it would involve the company ceasing to exist as an independent entity.
+**Acquisition.** In theory, if a company like Apple, Google, or Adobe bought Insta360, they'd gain hardware expertise they currently lack and could rebuild the software with their own teams and resources. But this scenario is unlikely to materialize: both DJI and Insta360 are headquartered in China, and the regulatory and geopolitical barriers to acquisition by a US tech company are substantial. If acquisition happens, it's more likely to come from a Chinese company—perhaps one of the large Chinese AI labs if the strategic value of camera hardware for embodied AI becomes clear enough. But the Chinese hardware industry seems to operate differently: Xiaomi was never acquired, it just kept growing. These companies may simply remain independent, neither acquired nor acquiring, competing in an increasingly squeezed market.
 
 ---
 
@@ -203,10 +208,9 @@ These applications need:
 - depth hints or disparity maps
 - motion vectors
 - stitching parameters
-- sensor temperature and thermal state
-- exposure/ISO/shutter history
+- lens-specific calibration profiles
 
-OSC provides **none** of these.
+To be fair, OSC can handle basic camera settings—exposure, ISO, shutter speed, white balance. These are standard camera parameters that any API can expose. The problem isn't the basic controls. It's the computational metadata that makes 360° footage useful for machine vision: the per-frame orientation, the IMU synchronization, the proprietary calibration data that lets you interpret what the pixels actually mean in 3D space. This is what OSC doesn't model, and what each manufacturer guards as proprietary.
 
 #### 5. State & performance telemetry
 
@@ -218,7 +222,7 @@ Modern cameras are constrained by:
 - SD card write bandwidth
 - dynamic bitrate systems
 
-A program needs to adapt to these states. OSC offers no vocabulary for them.
+A program needs to adapt to these states. While basic telemetry like battery level and temperature could be added to OSC (these are straightforward hardware queries), the deeper issue is the dynamic behavior: how a camera throttles encoding when it gets hot, how it adjusts bitrate based on SD card speed, how it balances capture quality against thermal headroom. These are system-level behaviors that vary by manufacturer and model, and they're not easily standardized.
 
 ### Why Open Spherical Camera falls short
 
@@ -322,6 +326,10 @@ Instead, engineering teams bypass these cameras entirely and choose industrial s
 By treating SDKs like afterthoughts, camera companies are effectively **locking themselves out of the single biggest long-term market for cameras: AI perception systems**.
 
 This is the tragedy: **they already have the perfect hardware for robotics**, they just don't have the software quality required to convince robotics teams to adopt it.
+
+There are signs that some companies see this. Insta360 has recently branched into drones, entering direct competition with DJI. But notably, they're targeting the enterprise market rather than consumers—inspection drones, industrial applications, commercial surveying. This is a strategic hedge: the enterprise market requires different go-to-market strategies, longer sales cycles, and deeper integration work, but it's also less price-sensitive and more tolerant of specialized tooling.
+
+Whether the enterprise market is large enough to matter is another question. Apple made a similar bet with Vision Pro, positioning it initially as an enterprise device for specialized workflows rather than a consumer product. The jury is still out on whether that market can sustain the R&D investment required. For camera companies, the enterprise pivot might be a pragmatic acknowledgment that consumer markets are increasingly dominated by smartphones and that professional/industrial applications offer more defensible niches—if they can get the software quality up to enterprise standards.
 
 ---
 
