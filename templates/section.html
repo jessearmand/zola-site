@@ -1,0 +1,31 @@
+{% extends "index.html" %}
+
+{% block title %}{{ section.title }} &middot; {{ config.title }}{% endblock title %}
+{% block description %}{{ section.description | default(value=config.description) }}{% endblock description %}
+
+{% block ogtitle %}{{ section.title }}{% endblock ogtitle %}
+{% block ogdesc %}{{ section.description | default(value=config.description) }}{% endblock ogdesc %}
+{% block ogurl %}{{ section.permalink | safe }}{% endblock ogurl %}
+
+{% block content %}
+<article>
+  <h1>{{ section.title }}</h1>
+
+  {% if section.content %}
+    {{ section.content | safe }}
+  {% endif %}
+
+  {% if section.pages %}
+  <ul class="homepage-list">
+    {% for page in section.pages %}
+      <li>
+        <a href="{{ page.permalink | safe }}">{{ page.title }}</a>
+        {% if page.date %}
+          <time style="font-size:90%;" datetime="{{ page.date | date(format="%+") }}">{{ page.date | date(format="%B %d, %Y") }}</time>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</article>
+{% endblock content %}
