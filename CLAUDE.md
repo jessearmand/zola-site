@@ -62,15 +62,6 @@ This is a Zola static site with an AI-powered chat feature deployed on Vercel.
 
 ## Code Style
 
-**TypeScript (`api/` directory)**
-- ES modules with strict TypeScript
-- `async/await` for all async operations
-- JSDoc comments for public functions
-
-**Python (`file_search/` directory)**
-- Uses `uv` for package management (see `pyproject.toml`)
-- Type hints, f-strings, PEP 8 naming
-
 **Content**
 - Markdown with TOML front matter (`+++` delimiters)
 - Files named with date prefix: `YYYY-MM-DD-title.md`

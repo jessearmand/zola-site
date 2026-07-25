@@ -1,0 +1,8 @@
+default_provider = "openai"
+
+[providers.openai]
+type = "keychain"
+service = "fnox"
+
+[secrets]
+OPENAI_API_KEY= { provider = "openai", value = "OPENAI_API_KEY" }

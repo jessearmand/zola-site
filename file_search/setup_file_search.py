@@ -297,8 +297,9 @@ def test_file_search():
     print(f"Testing file search with query: {{query}}")
 
     response = client.responses.create(
-        model="gpt-4.1-mini",
+        model="gpt-5.6-luna",
         input=query,
+        reasoning={{"effort": "low"}},
         tools=[{{
             "type": "file_search",
             "vector_store_ids": ["{vector_store_id}"]

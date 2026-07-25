@@ -1,15 +1,19 @@
 {
   "type": "module",
   "scripts": {
-    "build": "curl -sL https://github.com/getzola/zola/releases/download/v0.19.1/zola-v0.19.1-x86_64-unknown-linux-gnu.tar.gz | tar xz && ./zola build",
-    "type-check": "tsc --noEmit"
+    "build": "if command -v zola >/dev/null 2>&1; then zola build; else curl -sL https://github.com/getzola/zola/releases/download/v0.19.1/zola-v0.19.1-x86_64-unknown-linux-gnu.tar.gz | tar xz && ./zola build; fi",
+    "type-check": "tsc --noEmit",
+    "lint": "vp lint",
+    "format": "vp fmt",
+    "check": "vp check"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
+    "@types/node": "^24.0.0",
     "@vercel/node": "^3.0.0",
-    "typescript": "^5.3.0"
+    "typescript": "^5.3.0",
+    "vite-plus": "^0.2.6"
   },
   "engines": {
-    "node": ">=22"
+    "node": "24.x"
   }
 }
