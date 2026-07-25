@@ -11,7 +11,7 @@
  * CommonMark grammar.
  */
 
-const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+const ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 
 export function escapeHtml(text) {
   return String(text).replace(/[&<>"']/g, (ch) => ESCAPES[ch]);
@@ -38,35 +38,37 @@ function renderInline(escaped) {
   // Links: [label](url). The url arrives escaped, so &amp; must be read back
   // when testing the scheme.
   text = text.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (match, label, url) => {
-    const href = url.replace(/&amp;/g, '&');
+    const href = url.replace(/&amp;/g, "&");
     return isSafeUrl(href)
       ? `<a href="${url}" target="_blank" rel="noopener noreferrer">${label}</a>`
       : match;
   });
 
-  text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  text = text.replace(/(^|[\s(])\*([^*\n]+)\*/g, '$1<em>$2</em>');
-  text = text.replace(/(^|[\s(])_([^_\n]+)_/g, '$1<em>$2</em>');
+  text = text.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  text = text.replace(/(^|[\s(])\*([^*\n]+)\*/g, "$1<em>$2</em>");
+  text = text.replace(/(^|[\s(])_([^_\n]+)_/g, "$1<em>$2</em>");
 
   return text.replace(/\u0000(\d+)\u0000/g, (_, i) => `<code>${codeSpans[Number(i)]}</code>`);
 }
 
 /** Renders one blank-line-delimited block: list, heading, quote, or paragraph. */
 function renderBlock(block) {
-  const lines = block.split('\n');
+  const lines = block.split("\n");
 
   if (lines.every((line) => /^\s*[-*]\s+/.test(line))) {
-    const items = lines.map((line) => `<li>${renderInline(line.replace(/^\s*[-*]\s+/, ''))}</li>`);
-    return `<ul>${items.join('')}</ul>`;
+    const items = lines.map((line) => `<li>${renderInline(line.replace(/^\s*[-*]\s+/, ""))}</li>`);
+    return `<ul>${items.join("")}</ul>`;
   }
 
   if (lines.every((line) => /^\s*\d+[.)]\s+/.test(line))) {
-    const items = lines.map((line) => `<li>${renderInline(line.replace(/^\s*\d+[.)]\s+/, ''))}</li>`);
-    return `<ol>${items.join('')}</ol>`;
+    const items = lines.map(
+      (line) => `<li>${renderInline(line.replace(/^\s*\d+[.)]\s+/, ""))}</li>`,
+    );
+    return `<ol>${items.join("")}</ol>`;
   }
 
   if (lines.every((line) => /^\s*&gt;\s?/.test(line))) {
-    const quoted = lines.map((line) => line.replace(/^\s*&gt;\s?/, '')).join('<br/>');
+    const quoted = lines.map((line) => line.replace(/^\s*&gt;\s?/, "")).join("<br/>");
     return `<blockquote>${renderInline(quoted)}</blockquote>`;
   }
 
@@ -76,7 +78,7 @@ function renderBlock(block) {
     return `<h${level}>${renderInline(heading[2])}</h${level}>`;
   }
 
-  return `<p>${renderInline(lines.join('<br/>'))}</p>`;
+  return `<p>${renderInline(lines.join("<br/>"))}</p>`;
 }
 
 /**
@@ -95,14 +97,14 @@ export function renderMarkdown(markdown) {
     .map((segment, index) => {
       // Odd segments sit between a pair of fences.
       if (index % 2 === 1) {
-        return `<pre><code>${segment.replace(/^[^\n]*\n/, '')}</code></pre>`;
+        return `<pre><code>${segment.replace(/^[^\n]*\n/, "")}</code></pre>`;
       }
       return segment
         .split(/\n{2,}/)
         .map((block) => block.trim())
         .filter(Boolean)
         .map(renderBlock)
-        .join('');
+        .join("");
     })
-    .join('');
+    .join("");
 }

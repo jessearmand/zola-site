@@ -1,32 +1,32 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import { getVectorStoreId } from '../vector_store/vector-store-config.js';
+import type { VercelRequest, VercelResponse } from "@vercel/node";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { getVectorStoreId } from "../vector_store/vector-store-config.js";
 
 // Determine which search provider to use based on environment variables.
 // Defaults to 'openai_web_search' if SEARCH_PROVIDER is not set.
-const searchProvider = process.env.SEARCH_PROVIDER || 'openai_web_search';
+const searchProvider = process.env.SEARCH_PROVIDER || "openai_web_search";
 
 // GPT-5.6 model family. `luna` is the efficient, high-volume tier — the right
 // fit for short chat answers. See the GPT-5.6 migration guide:
 // https://developers.openai.com/api/docs/guides/latest-model
-const OPENAI_MODEL = 'gpt-5.6-luna';
+const OPENAI_MODEL = "gpt-5.6-luna";
 
 // Reasoning effort for the Responses API. `low` keeps latency down for a
 // latency-sensitive chat widget while still allowing tool use (web + file search).
-const OPENAI_REASONING_EFFORT = 'low';
+const OPENAI_REASONING_EFFORT = "low";
 
 // Default level of detail. GPT-5.6 is terse by default, so `text.verbosity` is
 // the documented lever for length control now that the old "be concise"
 // instruction has been dropped from the prompt.
-const OPENAI_VERBOSITY = 'medium';
+const OPENAI_VERBOSITY = "medium";
 
 // Model used on the SEARCH_PROVIDER=openrouter_xai path, for both the answer
 // and the guardrail classification.
-const OPENROUTER_MODEL = 'openai/gpt-4.1-mini';
+const OPENROUTER_MODEL = "openai/gpt-4.1-mini";
 
 // Secondary live-search model on the same path. https://docs.x.ai/developers/models/grok-4.3
-const XAI_MODEL = 'grok-4.3';
+const XAI_MODEL = "grok-4.3";
 
 // Deterministic first gate. Rejected before any token is spent, including the
 // guardrail's own call.
@@ -38,20 +38,20 @@ const MAX_QUESTION_LENGTH = 2000;
  */
 interface GuardrailVerdict {
   tripwireTriggered: boolean;
-  category: 'allowed' | 'off_topic_work' | 'prompt_injection' | 'abuse';
+  category: "allowed" | "off_topic_work" | "prompt_injection" | "abuse";
   reason: string;
 }
 
 const GUARDRAIL_SCHEMA = {
-  type: 'object',
+  type: "object",
   properties: {
     category: {
-      type: 'string',
-      enum: ['allowed', 'off_topic_work', 'prompt_injection', 'abuse'],
+      type: "string",
+      enum: ["allowed", "off_topic_work", "prompt_injection", "abuse"],
     },
-    reason: { type: 'string' },
+    reason: { type: "string" },
   },
-  required: ['category', 'reason'],
+  required: ["category", "reason"],
   additionalProperties: false,
 } as const;
 
@@ -67,7 +67,7 @@ Answer with one category:
 Default to "allowed" when uncertain. A blunt, critical, or unflattering question about the author or the posts is allowed.`;
 
 /** Visitor-facing message for each way the tripwire can fire. */
-const GUARDRAIL_MESSAGES: Record<Exclude<GuardrailVerdict['category'], 'allowed'>, string> = {
+const GUARDRAIL_MESSAGES: Record<Exclude<GuardrailVerdict["category"], "allowed">, string> = {
   off_topic_work: `I can only answer questions about this blog and its author. For general help, try ChatGPT or Claude.`,
   prompt_injection: `I can only answer questions about this blog and its author.`,
   abuse: `I can't help with that. Ask me about the blog or the author's background instead.`,
@@ -75,17 +75,17 @@ const GUARDRAIL_MESSAGES: Record<Exclude<GuardrailVerdict['category'], 'allowed'
 
 const ALLOWED: GuardrailVerdict = {
   tripwireTriggered: false,
-  category: 'allowed',
-  reason: 'guardrail unavailable',
+  category: "allowed",
+  reason: "guardrail unavailable",
 };
 
 /** Classifies via the OpenAI Responses API. Returns the raw verdict JSON. */
 async function classifyWithOpenAI(apiKey: string, question: string): Promise<string | null> {
-  const apiRes = await fetch('https://api.openai.com/v1/responses', {
-    method: 'POST',
+  const apiRes = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
     headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       model: OPENAI_MODEL,
@@ -93,11 +93,11 @@ async function classifyWithOpenAI(apiKey: string, question: string): Promise<str
       input: question,
       // `none` keeps this to one fast forward pass — it is a classification,
       // not a reasoning task, and it sits in the visitor's critical path.
-      reasoning: { effort: 'none' },
+      reasoning: { effort: "none" },
       text: {
         format: {
-          type: 'json_schema',
-          name: 'guardrail_verdict',
+          type: "json_schema",
+          name: "guardrail_verdict",
           schema: GUARDRAIL_SCHEMA,
           strict: true,
         },
@@ -112,12 +112,14 @@ async function classifyWithOpenAI(apiKey: string, question: string): Promise<str
 
   // `output_text` is an SDK convenience accessor and is absent from the raw
   // REST payload — the text lives on the message item.
-  const data = await apiRes.json() as {
+  const data = (await apiRes.json()) as {
     output?: Array<{ type: string; content?: Array<{ type: string; text?: string }> }>;
   };
-  return data.output
-    ?.find((item) => item.type === 'message')
-    ?.content?.find((part) => part.type === 'output_text')?.text ?? null;
+  return (
+    data.output
+      ?.find((item) => item.type === "message")
+      ?.content?.find((part) => part.type === "output_text")?.text ?? null
+  );
 }
 
 /**
@@ -125,22 +127,22 @@ async function classifyWithOpenAI(apiKey: string, question: string): Promise<str
  * with only OPENROUTER_API_KEY is still guarded.
  */
 async function classifyWithOpenRouter(apiKey: string, question: string): Promise<string | null> {
-  const apiRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
+  const apiRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
     headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       model: OPENROUTER_MODEL,
       messages: [
-        { role: 'system', content: GUARDRAIL_INSTRUCTIONS },
-        { role: 'user', content: question },
+        { role: "system", content: GUARDRAIL_INSTRUCTIONS },
+        { role: "user", content: question },
       ],
       response_format: {
-        type: 'json_schema',
+        type: "json_schema",
         json_schema: {
-          name: 'guardrail_verdict',
+          name: "guardrail_verdict",
           strict: true,
           schema: GUARDRAIL_SCHEMA,
         },
@@ -153,7 +155,7 @@ async function classifyWithOpenRouter(apiKey: string, question: string): Promise
     return null;
   }
 
-  const data = await apiRes.json() as {
+  const data = (await apiRes.json()) as {
     choices?: Array<{ message?: { content?: string } }>;
   };
   return data.choices?.[0]?.message?.content ?? null;
@@ -176,7 +178,7 @@ async function runInputGuardrail(question: string): Promise<GuardrailVerdict> {
   const openRouterKey = process.env.OPENROUTER_API_KEY;
 
   if (!openaiKey && !openRouterKey) {
-    console.warn('No provider key available for the guardrail; allowing through.');
+    console.warn("No provider key available for the guardrail; allowing through.");
     return ALLOWED;
   }
 
@@ -189,7 +191,7 @@ async function runInputGuardrail(question: string): Promise<GuardrailVerdict> {
       return ALLOWED;
     }
 
-    const { category, reason } = JSON.parse(text) as Omit<GuardrailVerdict, 'tripwireTriggered'>;
+    const { category, reason } = JSON.parse(text) as Omit<GuardrailVerdict, "tripwireTriggered">;
 
     // Only a recognised non-allowed category blocks. An unexpected value is a
     // guardrail malfunction, and this guardrail fails open.
@@ -199,8 +201,8 @@ async function runInputGuardrail(question: string): Promise<GuardrailVerdict> {
 
     return { tripwireTriggered: true, category, reason };
   } catch (error) {
-    console.warn('Guardrail error; allowing through:', error);
-    return { ...ALLOWED, reason: 'guardrail error' };
+    console.warn("Guardrail error; allowing through:", error);
+    return { ...ALLOWED, reason: "guardrail error" };
   }
 }
 
@@ -213,12 +215,14 @@ async function runInputGuardrail(question: string): Promise<GuardrailVerdict> {
  */
 function sendRefusal(res: VercelResponse, message: string): void {
   res.writeHead(200, {
-    'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache',
-    Connection: 'keep-alive',
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
   });
-  res.write(`data: ${JSON.stringify({ type: 'response.output_text.delta', delta: message })}\n\n`);
-  res.write(`data: ${JSON.stringify({ type: 'response.completed', response: { output: [] } })}\n\n`);
+  res.write(`data: ${JSON.stringify({ type: "response.output_text.delta", delta: message })}\n\n`);
+  res.write(
+    `data: ${JSON.stringify({ type: "response.completed", response: { output: [] } })}\n\n`,
+  );
   res.end();
 }
 
@@ -235,10 +239,7 @@ function sendRefusal(res: VercelResponse, message: string): void {
  * @param tools Which retrieval tools the caller wired up. The OpenRouter path
  *   has neither, so it must not be told to consult the posts.
  */
-function buildInstructions(
-  resumeData: string,
-  tools: { posts: boolean; web: boolean }
-): string {
+function buildInstructions(resumeData: string, tools: { posts: boolean; web: boolean }): string {
   // Stated as an unconditional labelling rule rather than "if the posts don't
   // cover it, say so" — the model can answer without ever consulting the posts,
   // so a rule conditioned on that check simply never fires.
@@ -247,7 +248,9 @@ function buildInstructions(
     tools.web ? `web search` : null,
     `the résumé below`,
     `your own knowledge`,
-  ].filter(Boolean).join(', ');
+  ]
+    .filter(Boolean)
+    .join(", ");
 
   const grounding = tools.posts
     ? `Answer from what the posts actually say, and cite the post you drew on. When you go beyond reporting into interpretation, mark it as your reading and name the passage it rests on.`
@@ -272,18 +275,15 @@ ${resumeData}`;
  * Main handler for the Vercel serverless function.
  * Routes the request to the appropriate search provider based on the `searchProvider` config.
  */
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-): Promise<void> {
-  if (req.method !== 'POST') {
-    res.status(405).json({ error: 'Method Not Allowed' });
+export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
+  if (req.method !== "POST") {
+    res.status(405).json({ error: "Method Not Allowed" });
     return;
   }
 
   const { question } = req.body as { question?: string };
   if (!question) {
-    res.status(400).json({ error: 'No question provided.' });
+    res.status(400).json({ error: "No question provided." });
     return;
   }
 
@@ -295,7 +295,7 @@ export default async function handler(
   // Guardrail before spend. This endpoint is public and unauthenticated, so the
   // check runs on every request regardless of which provider serves it.
   const verdict = await runInputGuardrail(question);
-  if (verdict.tripwireTriggered && verdict.category !== 'allowed') {
+  if (verdict.tripwireTriggered && verdict.category !== "allowed") {
     console.log(`Guardrail tripped [${verdict.category}]: ${verdict.reason}`);
     sendRefusal(res, GUARDRAIL_MESSAGES[verdict.category]);
     return;
@@ -306,7 +306,7 @@ export default async function handler(
 
   try {
     // Route to the appropriate streaming function based on the configured provider.
-    if (searchProvider === 'openrouter_xai') {
+    if (searchProvider === "openrouter_xai") {
       await streamOpenRouterXai(res, question, resumeData);
     } else {
       await streamOpenaiWebSearch(res, question, resumeData);
@@ -315,7 +315,7 @@ export default async function handler(
     const err = error as Error;
     // Don't send a 500 status code if the stream has already started.
     if (!res.writableEnded) {
-      res.status(500).json({ error: err.message || 'Failed to process request.' });
+      res.status(500).json({ error: err.message || "Failed to process request." });
     }
   }
 }
@@ -328,7 +328,7 @@ export default async function handler(
 async function streamOpenaiWebSearch(res: VercelResponse, question: string, resumeData: string) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    res.status(500).json({ error: 'OpenAI API key not configured.' });
+    res.status(500).json({ error: "OpenAI API key not configured." });
     return;
   }
 
@@ -338,31 +338,34 @@ async function streamOpenaiWebSearch(res: VercelResponse, question: string, resu
   // Build tools array - always include web search, add file search if available.
   // `web_search` supersedes the legacy `web_search_preview` tool and is the
   // supported hosted search tool for the GPT-5.x reasoning models.
-  const tools: Array<{
-    type: "web_search";
-    search_context_size: "medium";
-  } | {
-    type: "file_search";
-    vector_store_ids: string[];
-  }> = [
+  const tools: Array<
+    | {
+        type: "web_search";
+        search_context_size: "medium";
+      }
+    | {
+        type: "file_search";
+        vector_store_ids: string[];
+      }
+  > = [
     {
       type: "web_search",
-      search_context_size: "medium"
-    }
+      search_context_size: "medium",
+    },
   ];
 
   if (vectorStoreId) {
     tools.push({
       type: "file_search",
-      vector_store_ids: [vectorStoreId]
+      vector_store_ids: [vectorStoreId],
     });
   }
 
-  const apiRes = await fetch('https://api.openai.com/v1/responses', {
-    method: 'POST',
+  const apiRes = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
     headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       model: OPENAI_MODEL,
@@ -387,9 +390,9 @@ async function streamOpenaiWebSearch(res: VercelResponse, question: string, resu
 
   // Set up Server-Sent Events headers for the client.
   res.writeHead(200, {
-    'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache',
-    Connection: 'keep-alive',
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
   });
 
   // Stream the response body to the client.
@@ -413,15 +416,15 @@ async function streamOpenaiWebSearch(res: VercelResponse, question: string, resu
 async function streamOpenRouterXai(res: VercelResponse, question: string, resumeData: string) {
   const openRouterKey = process.env.OPENROUTER_API_KEY;
   if (!openRouterKey) {
-    res.status(500).json({ error: 'OpenRouter API key not configured.' });
+    res.status(500).json({ error: "OpenRouter API key not configured." });
     return;
   }
 
-  const openRouterRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
+  const openRouterRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
     headers: {
-      'Authorization': `Bearer ${openRouterKey}`,
-      'Content-Type': 'application/json',
+      Authorization: `Bearer ${openRouterKey}`,
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       model: OPENROUTER_MODEL,
@@ -429,9 +432,9 @@ async function streamOpenRouterXai(res: VercelResponse, question: string, resume
       messages: [
         // No retrieval tools on this path, so the instructions tell the model
         // to work from the résumé rather than to cite posts it cannot read.
-        { role: 'system', content: buildInstructions(resumeData, { posts: false, web: false }) },
-        { role: 'user', content: question }
-      ]
+        { role: "system", content: buildInstructions(resumeData, { posts: false, web: false }) },
+        { role: "user", content: question },
+      ],
     }),
   });
 
@@ -441,9 +444,9 @@ async function streamOpenRouterXai(res: VercelResponse, question: string, resume
 
   // Set up Server-Sent Events headers.
   res.writeHead(200, {
-    'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache',
-    Connection: 'keep-alive',
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
   });
 
   // First, stream the OpenRouter response.
@@ -484,11 +487,11 @@ async function streamXaiSearch(res: VercelResponse, xaiKey: string, question: st
   // their Responses API. That API is OpenAI-compatible, so this stream emits
   // `response.output_text.delta` events and carries citations as
   // `url_citation` annotations -- both already handled by the client.
-  const xaiRes = await fetch('https://api.x.ai/v1/responses', {
-    method: 'POST',
+  const xaiRes = await fetch("https://api.x.ai/v1/responses", {
+    method: "POST",
     headers: {
-      'Authorization': `Bearer ${xaiKey}`,
-      'Content-Type': 'application/json',
+      Authorization: `Bearer ${xaiKey}`,
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       model: XAI_MODEL,
@@ -498,7 +501,7 @@ async function streamXaiSearch(res: VercelResponse, xaiKey: string, question: st
       // the posts.
       instructions: `Answer from live web search, drawing on @jessearmand on X and GitHub where relevant. Lead with the answer, then the evidence and any material caveat. Report what the sources say without taking a side, and say so when they disagree or when you found nothing. Omit generic praise and sign-offs.`,
       input: question,
-      tools: [{ type: 'web_search' }],
+      tools: [{ type: "web_search" }],
     }),
   });
 
@@ -520,19 +523,18 @@ async function streamXaiSearch(res: VercelResponse, xaiKey: string, question: st
  */
 async function getResumeData(): Promise<string> {
   try {
-    const pagesDir = path.join(process.cwd(), 'content', 'pages');
-    const aboutPath = path.join(pagesDir, 'about.md');
+    const pagesDir = path.join(process.cwd(), "content", "pages");
+    const aboutPath = path.join(pagesDir, "about.md");
 
-    const stripFrontMatter = (md: string) =>
-      md.replace(/^\+\+\+[\s\S]*?\+\+\+\s*/, '').trim();
+    const stripFrontMatter = (md: string) => md.replace(/^\+\+\+[\s\S]*?\+\+\+\s*/, "").trim();
 
-    const [aboutRaw = '', summaryRaw = ''] = await Promise.all([
-      fs.readFile(aboutPath, 'utf-8').catch(() => '')
+    const [aboutRaw = "", summaryRaw = ""] = await Promise.all([
+      fs.readFile(aboutPath, "utf-8").catch(() => ""),
     ]);
 
     const resumeData = `${stripFrontMatter(aboutRaw)}\n\n${stripFrontMatter(summaryRaw)}`.trim();
-    return resumeData || 'Resume data unavailable.';
+    return resumeData || "Resume data unavailable.";
   } catch {
-    return 'Resume data unavailable.';
+    return "Resume data unavailable.";
   }
 }
