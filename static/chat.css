@@ -1,0 +1,95 @@
+/* Chat widget on /chat. Kept out of the theme's sass pipeline so the theme
+   submodule stays untouched. */
+
+.chat-panel {
+  margin-top: 2rem;
+  background: white;
+  padding: 1rem;
+  border: 1px solid #ddd;
+}
+
+.chat-output {
+  max-height: 400px;
+  overflow-y: auto;
+  margin-bottom: 1rem;
+  padding-right: 10px;
+}
+
+.chat-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.chat-input {
+  flex-grow: 1;
+  padding: 0.8rem;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+}
+
+.chat-send {
+  padding: 0.8rem 1.2rem;
+  font-size: 1rem;
+  background-color: darkred;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.chat-send:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.chat-turn {
+  margin: 0.5rem 0;
+}
+
+.chat-error {
+  margin: 0.5rem 0;
+  color: red;
+}
+
+.chat-sources {
+  margin: 0.5rem 0;
+  font-size: 90%;
+}
+
+.chat-separator {
+  margin: 0.8rem 0;
+  border: none;
+  border-top: 1px solid #eee;
+}
+
+/* Rendered markdown inside a bot turn. */
+.chat-turn p {
+  margin: 0.5rem 0;
+}
+
+.chat-turn ul,
+.chat-turn ol {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+}
+
+.chat-turn blockquote {
+  margin: 0.5rem 0;
+  padding-left: 0.8rem;
+  border-left: 3px solid #ddd;
+  color: #555;
+}
+
+.chat-turn pre {
+  margin: 0.5rem 0;
+  padding: 0.6rem;
+  overflow-x: auto;
+  background: #f6f6f6;
+  border-radius: 3px;
+}
+
+.chat-turn code {
+  font-size: 92%;
+}
