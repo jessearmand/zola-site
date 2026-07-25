@@ -25,6 +25,9 @@ const OPENAI_VERBOSITY = 'medium';
 // and the guardrail classification.
 const OPENROUTER_MODEL = 'openai/gpt-4.1-mini';
 
+// Secondary live-search model on the same path. https://docs.x.ai/developers/models/grok-4.3
+const XAI_MODEL = 'grok-4.3';
+
 // Deterministic first gate. Rejected before any token is spent, including the
 // guardrail's own call.
 const MAX_QUESTION_LENGTH = 2000;
@@ -476,26 +479,26 @@ async function streamOpenRouterXai(res: VercelResponse, question: string, resume
  * itself fails, this gracefully finishes the stream.
  */
 async function streamXaiSearch(res: VercelResponse, xaiKey: string, question: string) {
-  const xaiRes = await fetch('https://api.x.ai/v1/chat/completions', {
+  // xAI's Chat Completions endpoint and its `search_parameters` block are now
+  // filed under "Legacy & Deprecated"; live search is a `web_search` tool on
+  // their Responses API. That API is OpenAI-compatible, so this stream emits
+  // `response.output_text.delta` events and carries citations as
+  // `url_citation` annotations -- both already handled by the client.
+  const xaiRes = await fetch('https://api.x.ai/v1/responses', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${xaiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'grok-3-latest',
+      model: XAI_MODEL,
       stream: true,
       // This stream renders under a separate "Live Search" heading, so its job
       // is the live-web complement to the blog answer, not a second reading of
       // the posts.
-      messages: [
-        {
-          role: 'system',
-          content: `Answer from live web search, drawing on @jessearmand on X and GitHub where relevant. Lead with the answer, then the evidence and any material caveat. Report what the sources say without taking a side, and say so when they disagree or when you found nothing. Omit generic praise and sign-offs.`
-        },
-        { role: 'user', content: question }
-      ],
-      search_parameters: { mode: 'on', max_search_results: 5, return_citations: true }
+      instructions: `Answer from live web search, drawing on @jessearmand on X and GitHub where relevant. Lead with the answer, then the evidence and any material caveat. Report what the sources say without taking a side, and say so when they disagree or when you found nothing. Omit generic praise and sign-offs.`,
+      input: question,
+      tools: [{ type: 'web_search' }],
     }),
   });
 
