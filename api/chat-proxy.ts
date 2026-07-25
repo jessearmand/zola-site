@@ -26,7 +26,7 @@ const OPENAI_VERBOSITY = "medium";
 const OPENROUTER_MODEL = "openai/gpt-4.1-mini";
 
 // Secondary live-search model on the same path. https://docs.x.ai/developers/models/grok-4.3
-const XAI_MODEL = "grok-4.3";
+const XAI_MODEL = "grok-4.3-latest";
 
 // Deterministic first gate. Rejected before any token is spent, including the
 // guardrail's own call.
@@ -528,12 +528,14 @@ async function getResumeData(): Promise<string> {
 
     const stripFrontMatter = (md: string) => md.replace(/^\+\+\+[\s\S]*?\+\+\+\s*/, "").trim();
 
-    const [aboutRaw = "", summaryRaw = ""] = await Promise.all([
-      fs.readFile(aboutPath, "utf-8").catch(() => ""),
-    ]);
+    // This destructured two bindings out of a one-element Promise.all, so
+    // `summaryRaw` was always '' and the template below appended an empty
+    // string. Reading only what is actually read. summary.md is in the vector
+    // store, so file_search still reaches it; loading it inline as well would
+    // change the context every request carries, which is a separate call.
+    const aboutRaw = await fs.readFile(aboutPath, "utf-8").catch(() => "");
 
-    const resumeData = `${stripFrontMatter(aboutRaw)}\n\n${stripFrontMatter(summaryRaw)}`.trim();
-    return resumeData || "Resume data unavailable.";
+    return stripFrontMatter(aboutRaw) || "Resume data unavailable.";
   } catch {
     return "Resume data unavailable.";
   }

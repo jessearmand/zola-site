@@ -48,6 +48,10 @@ function renderInline(escaped) {
   text = text.replace(/(^|[\s(])\*([^*\n]+)\*/g, "$1<em>$2</em>");
   text = text.replace(/(^|[\s(])_([^_\n]+)_/g, "$1<em>$2</em>");
 
+  // oxlint(no-control-regex): the NUL sentinel is the point — it is the one
+  // character that cannot appear in the escaped text, so the placeholder can
+  // never collide with a literal number the model wrote.
+  // eslint-disable-next-line no-control-regex
   return text.replace(/\u0000(\d+)\u0000/g, (_, i) => `<code>${codeSpans[Number(i)]}</code>`);
 }
 
