@@ -21,6 +21,10 @@ const OPENAI_REASONING_EFFORT = 'low';
 // instruction has been dropped from the prompt.
 const OPENAI_VERBOSITY = 'medium';
 
+// Model used on the SEARCH_PROVIDER=openrouter_xai path, for both the answer
+// and the guardrail classification.
+const OPENROUTER_MODEL = 'openai/gpt-4.1-mini';
+
 // Deterministic first gate. Rejected before any token is spent, including the
 // guardrail's own call.
 const MAX_QUESTION_LENGTH = 2000;
@@ -66,58 +70,120 @@ const GUARDRAIL_MESSAGES: Record<Exclude<GuardrailVerdict['category'], 'allowed'
   abuse: `I can't help with that. Ask me about the blog or the author's background instead.`,
 };
 
+const ALLOWED: GuardrailVerdict = {
+  tripwireTriggered: false,
+  category: 'allowed',
+  reason: 'guardrail unavailable',
+};
+
+/** Classifies via the OpenAI Responses API. Returns the raw verdict JSON. */
+async function classifyWithOpenAI(apiKey: string, question: string): Promise<string | null> {
+  const apiRes = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: OPENAI_MODEL,
+      instructions: GUARDRAIL_INSTRUCTIONS,
+      input: question,
+      // `none` keeps this to one fast forward pass — it is a classification,
+      // not a reasoning task, and it sits in the visitor's critical path.
+      reasoning: { effort: 'none' },
+      text: {
+        format: {
+          type: 'json_schema',
+          name: 'guardrail_verdict',
+          schema: GUARDRAIL_SCHEMA,
+          strict: true,
+        },
+      },
+    }),
+  });
+
+  if (!apiRes.ok) {
+    console.warn(`Guardrail call failed (${apiRes.status}); allowing through.`);
+    return null;
+  }
+
+  // `output_text` is an SDK convenience accessor and is absent from the raw
+  // REST payload — the text lives on the message item.
+  const data = await apiRes.json() as {
+    output?: Array<{ type: string; content?: Array<{ type: string; text?: string }> }>;
+  };
+  return data.output
+    ?.find((item) => item.type === 'message')
+    ?.content?.find((part) => part.type === 'output_text')?.text ?? null;
+}
+
+/**
+ * Classifies via OpenRouter's Chat Completions API, so a deployment configured
+ * with only OPENROUTER_API_KEY is still guarded.
+ */
+async function classifyWithOpenRouter(apiKey: string, question: string): Promise<string | null> {
+  const apiRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: OPENROUTER_MODEL,
+      messages: [
+        { role: 'system', content: GUARDRAIL_INSTRUCTIONS },
+        { role: 'user', content: question },
+      ],
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          name: 'guardrail_verdict',
+          strict: true,
+          schema: GUARDRAIL_SCHEMA,
+        },
+      },
+    }),
+  });
+
+  if (!apiRes.ok) {
+    console.warn(`Guardrail call failed (${apiRes.status}); allowing through.`);
+    return null;
+  }
+
+  const data = await apiRes.json() as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  return data.choices?.[0]?.message?.content ?? null;
+}
+
 /**
  * Blocking input guardrail: a cheap, non-streaming classification that runs
  * before the expensive part of the workflow. The main call attaches web search
  * and file search, so the cost of starting it speculatively is exactly what the
  * guide says blocking execution is for.
  *
+ * Classifies with whichever provider the deployment is configured for, so an
+ * OpenRouter-only deployment is guarded too rather than silently unguarded.
+ *
  * Fails open. The endpoint's risk is wasted spend, not safety, so a guardrail
  * outage should not take the chat down with it.
  */
-async function runInputGuardrail(apiKey: string, question: string): Promise<GuardrailVerdict> {
+async function runInputGuardrail(question: string): Promise<GuardrailVerdict> {
+  const openaiKey = process.env.OPENAI_API_KEY;
+  const openRouterKey = process.env.OPENROUTER_API_KEY;
+
+  if (!openaiKey && !openRouterKey) {
+    console.warn('No provider key available for the guardrail; allowing through.');
+    return ALLOWED;
+  }
+
   try {
-    const apiRes = await fetch('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        instructions: GUARDRAIL_INSTRUCTIONS,
-        input: question,
-        // `none` keeps this to one fast forward pass — it is a classification,
-        // not a reasoning task, and it sits in the visitor's critical path.
-        reasoning: { effort: 'none' },
-        text: {
-          format: {
-            type: 'json_schema',
-            name: 'guardrail_verdict',
-            schema: GUARDRAIL_SCHEMA,
-            strict: true,
-          },
-        },
-      }),
-    });
-
-    if (!apiRes.ok) {
-      console.warn(`Guardrail call failed (${apiRes.status}); allowing through.`);
-      return { tripwireTriggered: false, category: 'allowed', reason: 'guardrail unavailable' };
-    }
-
-    // `output_text` is an SDK convenience accessor and is absent from the raw
-    // REST payload — the text lives on the message item.
-    const data = await apiRes.json() as {
-      output?: Array<{ type: string; content?: Array<{ type: string; text?: string }> }>;
-    };
-    const text = data.output
-      ?.find((item) => item.type === 'message')
-      ?.content?.find((part) => part.type === 'output_text')?.text;
+    const text = openaiKey
+      ? await classifyWithOpenAI(openaiKey, question)
+      : await classifyWithOpenRouter(openRouterKey!, question);
 
     if (!text) {
-      console.warn('Guardrail returned no message text; allowing through.');
-      return { tripwireTriggered: false, category: 'allowed', reason: 'no verdict' };
+      return ALLOWED;
     }
 
     const { category, reason } = JSON.parse(text) as Omit<GuardrailVerdict, 'tripwireTriggered'>;
@@ -125,13 +191,13 @@ async function runInputGuardrail(apiKey: string, question: string): Promise<Guar
     // Only a recognised non-allowed category blocks. An unexpected value is a
     // guardrail malfunction, and this guardrail fails open.
     if (!(category in GUARDRAIL_MESSAGES)) {
-      return { tripwireTriggered: false, category: 'allowed', reason };
+      return { ...ALLOWED, reason };
     }
 
     return { tripwireTriggered: true, category, reason };
   } catch (error) {
     console.warn('Guardrail error; allowing through:', error);
-    return { tripwireTriggered: false, category: 'allowed', reason: 'guardrail error' };
+    return { ...ALLOWED, reason: 'guardrail error' };
   }
 }
 
@@ -225,14 +291,11 @@ export default async function handler(
 
   // Guardrail before spend. This endpoint is public and unauthenticated, so the
   // check runs on every request regardless of which provider serves it.
-  const guardrailKey = process.env.OPENAI_API_KEY;
-  if (guardrailKey) {
-    const verdict = await runInputGuardrail(guardrailKey, question);
-    if (verdict.tripwireTriggered && verdict.category !== 'allowed') {
-      console.log(`Guardrail tripped [${verdict.category}]: ${verdict.reason}`);
-      sendRefusal(res, GUARDRAIL_MESSAGES[verdict.category]);
-      return;
-    }
+  const verdict = await runInputGuardrail(question);
+  if (verdict.tripwireTriggered && verdict.category !== 'allowed') {
+    console.log(`Guardrail tripped [${verdict.category}]: ${verdict.reason}`);
+    sendRefusal(res, GUARDRAIL_MESSAGES[verdict.category]);
+    return;
   }
 
   // Read and sanitise context from local markdown files.
@@ -358,7 +421,7 @@ async function streamOpenRouterXai(res: VercelResponse, question: string, resume
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'openai/gpt-4.1-mini',
+      model: OPENROUTER_MODEL,
       stream: true,
       messages: [
         // No retrieval tools on this path, so the instructions tell the model
@@ -391,24 +454,28 @@ async function streamOpenRouterXai(res: VercelResponse, question: string, resume
     return;
   }
 
-  // Then, stream the x.ai live-search as a secondary response.
-  // Frame terminator was `}n\n` — a typo that made this line unparseable JSON,
-  // so the separator was silently dropped by the client.
-  res.write('data: {"choices":[{"delta":{"content":"<br><hr><br>"}}]}\n\n');
-  await streamXaiSearch(res, question);
-}
-
-/**
- * Helper to stream a secondary search from x.ai.
- * If the key is missing or the call fails, it gracefully finishes the stream.
- */
-async function streamXaiSearch(res: VercelResponse, question: string) {
+  // Then, stream the x.ai live-search as a secondary response — but only if it
+  // will actually produce one. Emitting the separator unconditionally left the
+  // client rendering a divider and an empty "Live Search:" turn whenever
+  // XAI_API_KEY was unset.
   const xaiKey = process.env.XAI_API_KEY;
   if (!xaiKey) {
     res.end();
     return;
   }
 
+  // Frame terminator was `}n\n` — a typo that made this line unparseable JSON,
+  // so the separator was silently dropped by the client.
+  res.write('data: {"choices":[{"delta":{"content":"<br><hr><br>"}}]}\n\n');
+  await streamXaiSearch(res, xaiKey, question);
+}
+
+/**
+ * Helper to stream a secondary search from x.ai.
+ * The caller checks for the key before emitting the separator; if the call
+ * itself fails, this gracefully finishes the stream.
+ */
+async function streamXaiSearch(res: VercelResponse, xaiKey: string, question: string) {
   const xaiRes = await fetch('https://api.x.ai/v1/chat/completions', {
     method: 'POST',
     headers: {
