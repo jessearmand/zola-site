@@ -5,11 +5,11 @@
     "type-check": "tsc --noEmit"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
+    "@types/node": "^24.0.0",
     "@vercel/node": "^3.0.0",
     "typescript": "^5.3.0"
   },
   "engines": {
-    "node": ">=22"
+    "node": "24.x"
   }
 }
