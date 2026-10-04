@@ -59,7 +59,6 @@ This is a Zola static site with an AI-powered chat feature deployed on Vercel.
 - `OPENAI_API_KEY` - Required for OpenAI web search and file search
 - `SEARCH_PROVIDER` - `openai_web_search` (default) or `openrouter_xai`
 - `OPENROUTER_API_KEY` - Required if using OpenRouter provider
-- `XAI_API_KEY` - Optional, enables secondary x.ai live search
 - `AI_GATEWAY_API_KEY` - Enables the Jev guardrail; without it that gate is skipped
 
 ## Code Style
