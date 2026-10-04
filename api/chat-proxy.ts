@@ -1,6 +1,8 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { runJevGuardrail } from "../guardrails/jev.js";
+import { allowed, type GuardrailVerdict } from "../guardrails/verdict.js";
 import { getVectorStoreId } from "../vector_store/vector-store-config.js";
 
 // Determine which search provider to use based on environment variables.
@@ -32,16 +34,6 @@ const XAI_MODEL = "grok-4.3-latest";
 // guardrail's own call.
 const MAX_QUESTION_LENGTH = 2000;
 
-/**
- * Result of the input guardrail, mirroring the Agents SDK tripwire shape.
- * https://developers.openai.com/api/docs/guides/agents/guardrails-approvals
- */
-interface GuardrailVerdict {
-  tripwireTriggered: boolean;
-  category: "allowed" | "off_topic_work" | "prompt_injection" | "abuse";
-  reason: string;
-}
-
 const GUARDRAIL_SCHEMA = {
   type: "object",
   properties: {
@@ -71,12 +63,6 @@ const GUARDRAIL_MESSAGES: Record<Exclude<GuardrailVerdict["category"], "allowed"
   off_topic_work: `I can only answer questions about this blog and its author. For general help, try ChatGPT or Claude.`,
   prompt_injection: `I can only answer questions about this blog and its author.`,
   abuse: `I can't help with that. Ask me about the blog or the author's background instead.`,
-};
-
-const ALLOWED: GuardrailVerdict = {
-  tripwireTriggered: false,
-  category: "allowed",
-  reason: "guardrail unavailable",
 };
 
 /** Classifies via the OpenAI Responses API. Returns the raw verdict JSON. */
@@ -179,7 +165,7 @@ async function runInputGuardrail(question: string): Promise<GuardrailVerdict> {
 
   if (!openaiKey && !openRouterKey) {
     console.warn("No provider key available for the guardrail; allowing through.");
-    return ALLOWED;
+    return allowed("guardrail not configured");
   }
 
   try {
@@ -188,7 +174,7 @@ async function runInputGuardrail(question: string): Promise<GuardrailVerdict> {
       : await classifyWithOpenRouter(openRouterKey!, question);
 
     if (!text) {
-      return ALLOWED;
+      return allowed("guardrail unavailable");
     }
 
     const { category, reason } = JSON.parse(text) as Omit<GuardrailVerdict, "tripwireTriggered">;
@@ -196,14 +182,29 @@ async function runInputGuardrail(question: string): Promise<GuardrailVerdict> {
     // Only a recognised non-allowed category blocks. An unexpected value is a
     // guardrail malfunction, and this guardrail fails open.
     if (!(category in GUARDRAIL_MESSAGES)) {
-      return { ...ALLOWED, reason };
+      return allowed(reason);
     }
 
     return { tripwireTriggered: true, category, reason };
   } catch (error) {
     console.warn("Guardrail error; allowing through:", error);
-    return { ...ALLOWED, reason: "guardrail error" };
+    return allowed("guardrail error");
   }
+}
+
+/**
+ * Runs the input gates in order and stops at the first that trips.
+ *
+ * Jev goes first: it is the cheaper call, and a question it blocks never
+ * reaches the model-based classifier behind it. Each gate fails open on its
+ * own, so losing one leaves the other in place.
+ */
+async function runInputGuardrails(question: string): Promise<GuardrailVerdict> {
+  const jevVerdict = await runJevGuardrail(question);
+  if (jevVerdict.tripwireTriggered) {
+    return jevVerdict;
+  }
+  return runInputGuardrail(question);
 }
 
 /**
@@ -281,8 +282,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     return;
   }
 
-  const { question } = req.body as { question?: string };
-  if (!question) {
+  // `question` is forwarded as the model's `input`, where an array would be read
+  // as a caller-supplied message list. Only a plain string is a question.
+  const { question } = (req.body ?? {}) as { question?: unknown };
+  if (typeof question !== "string" || !question.trim()) {
     res.status(400).json({ error: "No question provided." });
     return;
   }
@@ -294,7 +297,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
   // Guardrail before spend. This endpoint is public and unauthenticated, so the
   // check runs on every request regardless of which provider serves it.
-  const verdict = await runInputGuardrail(question);
+  const verdict = await runInputGuardrails(question);
   if (verdict.tripwireTriggered && verdict.category !== "allowed") {
     console.log(`Guardrail tripped [${verdict.category}]: ${verdict.reason}`);
     sendRefusal(res, GUARDRAIL_MESSAGES[verdict.category]);
