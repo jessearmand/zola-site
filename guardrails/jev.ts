@@ -1,4 +1,4 @@
-import { getPostTitles } from "./post-titles.js";
+import { getPostIndex } from "./posts.js";
 import { allowed, type GuardrailVerdict } from "./verdict.js";
 
 // Evaluation model on Vercel AI Gateway. It answers typed questions with
@@ -82,7 +82,7 @@ async function evaluateQuestion(apiKey: string, question: string): Promise<Proba
       model: JEV_MODEL,
       // The titles tell the model what "this blog" is; without them it can only
       // judge whether a question sounds like it is about some blog.
-      state: { blogPostTitles: await getPostTitles(), visitorQuestion: question },
+      state: { blogPostTitles: (await getPostIndex()).titles, visitorQuestion: question },
       questions: QUESTIONS,
     }),
     signal: AbortSignal.timeout(JEV_TIMEOUT_MS),

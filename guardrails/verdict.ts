@@ -6,7 +6,7 @@
  */
 export interface GuardrailVerdict {
   tripwireTriggered: boolean;
-  category: "allowed" | "off_topic_work" | "prompt_injection" | "abuse";
+  category: "allowed" | "off_topic" | "off_topic_work" | "prompt_injection" | "abuse";
   reason: string;
 }
 

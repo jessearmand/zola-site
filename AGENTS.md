@@ -38,8 +38,8 @@ This is a Zola static site with an AI-powered chat feature deployed on Vercel.
 
 **Input Guardrails**
 - `guardrails/jev.ts` - First gate: a Jev evaluation through Vercel AI Gateway (`/v1/evaluate`) that blocks prompt injection and requests for unrelated work; thresholds live in this file
-- `guardrails/post-titles.ts` - Reads post titles from `content/` as context for the gate (`vercel.json` bundles `content/**/*.md` into the function)
-- The second gate is the model-based classifier in `api/chat-proxy.ts`; both fail open
+- `guardrails/posts.ts` - Reads post titles and tags from `content/` as context for both gates (`vercel.json` bundles `content/**/*.md` into the function)
+- The second gate is the model-based classifier in `api/chat-proxy.ts`, which also blocks questions on subjects the blog does not cover; both fail open
 
 **Vector Store (OpenAI File Search)**
 - `file_search/setup_file_search.py` - Uploads blog posts to OpenAI for RAG
