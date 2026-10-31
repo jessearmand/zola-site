@@ -9,8 +9,11 @@
     "strict": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    // Tests import `./openai-auth.ts` so Node's type stripper can load them.
+    // Production imports keep the `.js` specifiers Vercel and NodeNext expect.
+    "allowImportingTsExtensions": true
   },
-  "include": ["api/**/*.ts"], // only check our serverless functions for now
+  "include": ["api/**/*.ts", "lib/**/*.ts"],
   "exclude": ["node_modules"]
 }

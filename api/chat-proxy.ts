@@ -4,6 +4,7 @@ import path from "node:path";
 import { runJevGuardrail } from "../guardrails/jev.js";
 import { getPostIndex, type PostIndex } from "../guardrails/posts.js";
 import { allowed, type GuardrailVerdict } from "../guardrails/verdict.js";
+import { OpenAIAuthError, getOpenAIBearerToken, hasOpenAICredentials } from "../lib/openai-auth.js";
 import { getVectorStoreId } from "../vector_store/vector-store-config.js";
 
 // Determine which search provider to use based on environment variables.
@@ -94,14 +95,14 @@ const GUARDRAIL_MESSAGES: Record<Exclude<GuardrailVerdict["category"], "allowed"
 
 /** Classifies via the OpenAI Responses API. Returns the raw verdict JSON. */
 async function classifyWithOpenAI(
-  apiKey: string,
+  bearerToken: string,
   instructions: string,
   question: string,
 ): Promise<string | null> {
   const apiRes = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${bearerToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -194,19 +195,23 @@ async function classifyWithOpenRouter(
  * Fails open. The endpoint's risk is wasted spend, not safety, so a guardrail
  * outage should not take the chat down with it.
  */
-async function runInputGuardrail(question: string, resumeData: string): Promise<GuardrailVerdict> {
-  const openaiKey = process.env.OPENAI_API_KEY;
+async function runInputGuardrail(
+  question: string,
+  resumeData: string,
+  oidcToken?: string,
+): Promise<GuardrailVerdict> {
+  const openAIConfigured = hasOpenAICredentials(process.env);
   const openRouterKey = process.env.OPENROUTER_API_KEY;
 
-  if (!openaiKey && !openRouterKey) {
-    console.warn("No provider key available for the guardrail; allowing through.");
+  if (!openAIConfigured && !openRouterKey) {
+    console.warn("No provider credentials available for the guardrail; allowing through.");
     return allowed("guardrail not configured");
   }
 
   try {
     const instructions = buildGuardrailInstructions(await getPostIndex(), resumeData);
-    const text = openaiKey
-      ? await classifyWithOpenAI(openaiKey, instructions, question)
+    const text = openAIConfigured
+      ? await classifyWithOpenAI(await getOpenAIBearerToken({ oidcToken }), instructions, question)
       : await classifyWithOpenRouter(openRouterKey!, instructions, question);
 
     if (!text) {
@@ -235,12 +240,24 @@ async function runInputGuardrail(question: string, resumeData: string): Promise<
  * reaches the model-based classifier behind it. Each gate fails open on its
  * own, so losing one leaves the other in place.
  */
-async function runInputGuardrails(question: string, resumeData: string): Promise<GuardrailVerdict> {
+async function runInputGuardrails(
+  question: string,
+  resumeData: string,
+  oidcToken?: string,
+): Promise<GuardrailVerdict> {
   const jevVerdict = await runJevGuardrail(question);
   if (jevVerdict.tripwireTriggered) {
     return jevVerdict;
   }
-  return runInputGuardrail(question, resumeData);
+  return runInputGuardrail(question, resumeData, oidcToken);
+}
+
+/** Vercel puts the function's OIDC token on the request. It is not logged. */
+function vercelOidcHeader(req: VercelRequest): string | undefined {
+  const value = req.headers["x-vercel-oidc-token"];
+  if (typeof value === "string") return value;
+  if (Array.isArray(value) && typeof value[0] === "string") return value[0];
+  return undefined;
 }
 
 /**
@@ -337,7 +354,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
   // Guardrail before spend. This endpoint is public and unauthenticated, so the
   // check runs on every request regardless of which provider serves it.
-  const verdict = await runInputGuardrails(question, resumeData);
+  const oidcToken = vercelOidcHeader(req);
+  const verdict = await runInputGuardrails(question, resumeData, oidcToken);
   if (verdict.tripwireTriggered && verdict.category !== "allowed") {
     console.log(`Guardrail tripped [${verdict.category}]: ${verdict.reason}`);
     sendRefusal(res, GUARDRAIL_MESSAGES[verdict.category]);
@@ -349,7 +367,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     if (searchProvider === "openrouter_xai") {
       await streamOpenRouterXai(res, question, resumeData);
     } else {
-      await streamOpenaiWebSearch(res, question, resumeData);
+      await streamOpenaiWebSearch(res, question, resumeData, oidcToken);
     }
   } catch (error) {
     const err = error as Error;
@@ -363,12 +381,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 /**
  * Fetches and streams a response from OpenAI with web search enabled.
  * Uses the official OpenAI API.
- * @requires OPENAI_API_KEY
+ *
+ * Auth is workload identity when OPENAI_IDENTITY_PROVIDER_ID and
+ * OPENAI_SERVICE_ACCOUNT_ID are set, and OPENAI_API_KEY otherwise.
  */
-async function streamOpenaiWebSearch(res: VercelResponse, question: string, resumeData: string) {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    res.status(500).json({ error: "OpenAI API key not configured." });
+async function streamOpenaiWebSearch(
+  res: VercelResponse,
+  question: string,
+  resumeData: string,
+  oidcToken?: string,
+) {
+  let bearerToken: string;
+  try {
+    bearerToken = await getOpenAIBearerToken({ oidcToken });
+  } catch (error) {
+    const message =
+      error instanceof OpenAIAuthError ? error.message : "OpenAI authentication failed.";
+    res.status(500).json({ error: message });
     return;
   }
 
@@ -404,7 +433,7 @@ async function streamOpenaiWebSearch(res: VercelResponse, question: string, resu
   const apiRes = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${bearerToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
