@@ -7,6 +7,9 @@ bun run build
 # Type-check TypeScript serverless functions
 bun run type-check
 
+# Unit tests for OpenAI workload-identity token exchange
+bun run test
+
 # Local development with Zola (requires zola installed)
 zola serve
 
@@ -35,6 +38,7 @@ This is a Zola static site with an AI-powered chat feature deployed on Vercel.
   - Streams SSE responses to the frontend
   - Reads resume context from `content/pages/about.md`
   - Controlled by `SEARCH_PROVIDER` env var (`openai_web_search` or `openrouter_xai`)
+  - OpenAI auth is `lib/openai-auth.ts`: workload identity via the Vercel OIDC token when `OPENAI_IDENTITY_PROVIDER_ID` and `OPENAI_SERVICE_ACCOUNT_ID` are set, otherwise `OPENAI_API_KEY`
 
 **Input Guardrails**
 - `guardrails/jev.ts` - First gate: a Jev evaluation through Vercel AI Gateway (`/v1/evaluate`) that blocks prompt injection and requests for unrelated work; thresholds live in this file
@@ -56,7 +60,9 @@ This is a Zola static site with an AI-powered chat feature deployed on Vercel.
 
 ### Environment Variables (Vercel)
 
-- `OPENAI_API_KEY` - Required for OpenAI web search and file search
+- `OPENAI_IDENTITY_PROVIDER_ID` and `OPENAI_SERVICE_ACCOUNT_ID` - Workload identity for OpenAI on Vercel. Not secrets. See README.md for the provider and the `iss` / `aud` / `sub` mapping. Remove `OPENAI_API_KEY` from Vercel once this works.
+- `OPENAI_OIDC_AUDIENCE` - Optional. Set only when the OpenAI provider expects a non-default `aud`.
+- `OPENAI_API_KEY` - Fallback when the workload-identity vars are unset (local dev, and the `file_search/` scripts)
 - `SEARCH_PROVIDER` - `openai_web_search` (default) or `openrouter_xai`
 - `OPENROUTER_API_KEY` - Required if using OpenRouter provider
 - `AI_GATEWAY_API_KEY` - Enables the Jev guardrail; without it that gate is skipped
