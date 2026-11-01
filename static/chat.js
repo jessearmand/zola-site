@@ -97,6 +97,10 @@ function createTurn(output, label) {
   let phase = "thinking";
   const indicator = createIndicator(el, label);
   indicator.setPhase("thinking");
+  // The old initial paint scrolled here. Without it, a transcript taller than
+  // .chat-output hides the new question and the Thinking/Reading label until
+  // the answer arrives.
+  output.scrollTop = output.scrollHeight;
 
   const renderAnswer = () => {
     indicator.stop();
