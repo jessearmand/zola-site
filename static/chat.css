@@ -48,6 +48,56 @@
   margin: 0.5rem 0;
 }
 
+/* Progress label in the assistant slot, before answer text arrives.
+   The live word is clipped out of view; sighted users see the fading frame. */
+.chat-status {
+  position: relative;
+}
+
+.chat-status-live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.chat-status-visual {
+  display: inline-block;
+  min-width: 12ch;
+  color: #555;
+}
+
+.chat-status-visual.is-fading {
+  animation: chat-status-fade 1s ease-in-out both;
+}
+
+@keyframes chat-status-fade {
+  0% {
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-status-visual.is-fading {
+    animation: none;
+    opacity: 1;
+  }
+}
+
 .chat-error {
   margin: 0.5rem 0;
   color: red;
@@ -64,9 +114,15 @@
   border-top: 1px solid #eee;
 }
 
-/* Rendered markdown inside a bot turn. */
+/* Rendered markdown inside a bot turn. The first paragraph stays inline so
+   the answer continues the "Bot:" line the progress label was on. */
 .chat-turn p {
   margin: 0.5rem 0;
+}
+
+.chat-turn p:first-of-type {
+  display: inline;
+  margin: 0;
 }
 
 .chat-turn ul,

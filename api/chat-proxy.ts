@@ -464,7 +464,11 @@ async function streamOpenaiWebSearch(
     Connection: "keep-alive",
   });
 
-  // Stream the response body to the client.
+  // Forward the Responses SSE body unchanged. The chat client reads
+  // `response.web_search_call.*` and `response.file_search_call.*` (and
+  // output items of type `web_search_call` / `file_search_call`) off these
+  // `data:` payloads to switch its progress label to "Reading". Filtering
+  // the stream down to text deltas would leave that label stuck on "Thinking".
   try {
     for await (const chunk of apiRes.body as any) {
       res.write(chunk);
@@ -575,6 +579,8 @@ async function streamXaiSearch(res: VercelResponse, xaiKey: string, question: st
   });
 
   if (xaiRes.ok && xaiRes.body) {
+    // Same contract as the OpenAI stream: forward every event, including
+    // `response.web_search_call.*`, so the "Live Search" turn can show Reading.
     try {
       for await (const chunk of xaiRes.body as any) {
         res.write(chunk);
