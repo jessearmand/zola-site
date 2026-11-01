@@ -4,11 +4,85 @@
  * Streams SSE from /api/chat-proxy and renders it incrementally. Model output
  * is never assigned as raw HTML — it goes through renderMarkdown(), which
  * escapes first and then applies a fixed set of formatting rules.
+ *
+ * Until the first answer delta, the assistant slot shows a progress label:
+ * "Thinking" while the guardrail and the model are working, "Reading" while a
+ * web or file search call is in flight. The dot cycle lives in the DOM; the
+ * phase rules live in chat-activity.js.
  */
 import { renderMarkdown, escapeHtml } from "./markdown.js";
+import {
+  DOT_STEP_MS,
+  createActivity,
+  extractDelta,
+  progressLabel,
+  progressVisual,
+  reduceActivity,
+} from "./chat-activity.js";
 
 const ENDPOINT = "/api/chat-proxy";
 const SEPARATOR = "<br><hr><br>"; // server signal that a second stream follows
+
+/**
+ * "Thinking." / "Reading..." in the assistant slot.
+ *
+ * The live region holds only the stable word, so a screen reader announces
+ * "Thinking" or "Reading" once and does not hear each dot. The cycling dots
+ * are aria-hidden and fade unless the user prefers reduced motion, in which
+ * case the stylesheet drops the fade and the text still steps once a second.
+ */
+function createIndicator(el, label) {
+  const live = document.createElement("span");
+  live.className = "chat-status-live";
+  live.setAttribute("role", "status");
+  live.setAttribute("aria-live", "polite");
+
+  const visual = document.createElement("span");
+  visual.className = "chat-status-visual";
+  visual.setAttribute("aria-hidden", "true");
+
+  const status = document.createElement("span");
+  status.className = "chat-status";
+  status.append(live, visual);
+
+  const strong = document.createElement("strong");
+  strong.textContent = label;
+  el.replaceChildren(strong, document.createTextNode(" "), status);
+
+  let phase = "";
+  let step = 0;
+  let timer = 0;
+
+  const paint = () => {
+    visual.textContent = progressVisual(phase, step);
+    // Restart the fade on each step. Removing the class and forcing a reflow
+    // is what makes the animation run again; reduced motion disables it in CSS.
+    visual.classList.remove("is-fading");
+    void visual.offsetWidth;
+    visual.classList.add("is-fading");
+  };
+
+  return {
+    /** @param {"thinking" | "reading"} next */
+    setPhase(next) {
+      if (next === phase) return;
+      phase = next;
+      live.textContent = progressLabel(next);
+      step = 0;
+      paint();
+      if (timer) window.clearInterval(timer);
+      timer = window.setInterval(() => {
+        step += 1;
+        paint();
+      }, DOT_STEP_MS);
+    },
+    stop() {
+      if (!timer) return;
+      window.clearInterval(timer);
+      timer = 0;
+    },
+  };
+}
 
 /** A bot turn that re-renders its accumulated markdown as deltas arrive. */
 function createTurn(output, label) {
@@ -18,26 +92,69 @@ function createTurn(output, label) {
 
   let markdown = "";
   let pending = false;
+  let paintGen = 0;
+  /** @type {"thinking" | "reading" | "done"} */
+  let phase = "thinking";
+  const indicator = createIndicator(el, label);
+  indicator.setPhase("thinking");
+  // The old initial paint scrolled here. Without it, a transcript taller than
+  // .chat-output hides the new question and the Thinking/Reading label until
+  // the answer arrives.
+  output.scrollTop = output.scrollHeight;
 
-  const paint = () => {
-    pending = false;
+  const renderAnswer = () => {
+    indicator.stop();
     el.innerHTML = `<strong>${escapeHtml(label)}</strong> ${renderMarkdown(markdown)}`;
     output.scrollTop = output.scrollHeight;
   };
 
-  paint();
+  const scheduleAnswer = () => {
+    if (pending) return;
+    pending = true;
+    const gen = ++paintGen;
+    requestAnimationFrame(() => {
+      if (gen !== paintGen) return;
+      pending = false;
+      renderAnswer();
+    });
+  };
 
   return {
+    /** @param {"thinking" | "reading" | "done"} next */
+    setPhase(next) {
+      if (phase === "done" || next === phase || next === "done") return;
+      phase = next;
+      indicator.setPhase(next);
+    },
     append(text) {
       markdown += text;
+      phase = "done";
       // Coalesce to one paint per frame; a long answer arrives as hundreds of
-      // deltas and each one re-renders the whole buffer.
-      if (!pending) {
-        pending = true;
-        requestAnimationFrame(paint);
-      }
+      // deltas and each one re-renders the whole buffer. The indicator stays
+      // up until that paint so the slot doesn't flash empty.
+      scheduleAnswer();
     },
-    finish: paint,
+    /** Drops the progress label. Used when the turn fails before any text. */
+    abandon() {
+      phase = "done";
+      paintGen += 1;
+      pending = false;
+      indicator.stop();
+      const status = el.querySelector(".chat-status");
+      if (status) status.remove();
+    },
+    /** Paints the answer, or removes the slot when the turn produced no text. */
+    finish() {
+      phase = "done";
+      paintGen += 1;
+      pending = false;
+      indicator.stop();
+      if (!markdown) {
+        el.remove();
+        return;
+      }
+      renderAnswer();
+    },
   };
 }
 
@@ -69,19 +186,6 @@ function addSources(output, citations) {
   });
   el.innerHTML = `<em>Sources:</em> ${refs.join(", ")}`;
   output.appendChild(el);
-}
-
-/** Pulls the text delta out of either API shape, or '' if the event carries none. */
-function extractDelta(parsed) {
-  // Responses API (OpenAI)
-  if (parsed.type === "response.output_text.delta") {
-    return parsed.delta || "";
-  }
-  // Chat Completions (OpenRouter / xAI)
-  if (parsed.choices && parsed.choices[0].delta) {
-    return parsed.choices[0].delta.content || "";
-  }
-  return "";
 }
 
 function collectCitations(parsed, citations) {
@@ -132,6 +236,7 @@ async function sendMessage() {
 
   const citations = new Map();
   let turn = createTurn(output, "Bot:");
+  let activity = createActivity();
 
   try {
     const response = await fetch(ENDPOINT, {
@@ -169,22 +274,35 @@ async function sendMessage() {
           continue;
         }
 
-        // Reasoning models emit reasoning/summary events alongside the answer.
-        // We only render the final answer, so drop them outright.
-        if (typeof parsed.type === "string" && parsed.type.startsWith("response.reasoning"))
-          continue;
-
         const delta = extractDelta(parsed);
         if (delta === SEPARATOR) {
           // Server is handing over to the secondary live-search stream.
+          // The sentinel is a synthetic delta, not answer text, so the new
+          // turn starts its own Thinking / Reading cycle.
           turn.finish();
           const hr = document.createElement("hr");
           hr.className = "chat-separator";
           output.appendChild(hr);
           turn = createTurn(output, "Live Search:");
+          activity = createActivity();
           continue;
         }
+
+        const next = reduceActivity(activity, parsed);
+        const becameDone = activity.phase !== "done" && next.phase === "done";
+        activity = next;
+
+        // Reasoning models emit reasoning/summary events alongside the answer.
+        // The phase update above already ran; only the final answer is rendered.
+        if (typeof parsed.type === "string" && parsed.type.startsWith("response.reasoning")) {
+          if (becameDone) turn.abandon();
+          else turn.setPhase(activity.phase);
+          continue;
+        }
+
         if (delta) turn.append(delta);
+        else if (becameDone) turn.abandon();
+        else turn.setPhase(activity.phase);
 
         collectCitations(parsed, citations);
       }
