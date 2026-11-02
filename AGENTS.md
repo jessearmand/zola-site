@@ -65,7 +65,7 @@ This is a Zola static site with an AI-powered chat feature deployed on Vercel.
 - `OPENAI_API_KEY` - Fallback when the workload-identity vars are unset (local dev, and the `file_search/` scripts)
 - `SEARCH_PROVIDER` - `openai_web_search` (default) or `openrouter_xai`
 - `OPENROUTER_API_KEY` - Required if using OpenRouter provider
-- `AI_GATEWAY_API_KEY` - Enables the Jev guardrail; without it that gate is skipped
+- `AI_GATEWAY_API_KEY` - Optional fallback for the Jev guardrail. `lib/ai-gateway-auth.ts` sends the Vercel OIDC token to AI Gateway first and uses this key only when no OIDC token is available (local runs). With neither, that gate is skipped
 
 ## Code Style
 

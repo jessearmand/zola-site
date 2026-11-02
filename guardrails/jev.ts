@@ -1,3 +1,4 @@
+import { getAiGatewayCredential, type AiGatewayCredential } from "../lib/ai-gateway-auth.js";
 import { getPostIndex } from "./posts.js";
 import { allowed, type GuardrailVerdict } from "./verdict.js";
 
@@ -71,11 +72,14 @@ function parseProbabilities(payload: unknown): Probabilities | null {
 }
 
 /** Asks Jev the gate's questions about one visitor question. Null means no usable answer. */
-async function evaluateQuestion(apiKey: string, question: string): Promise<Probabilities | null> {
+async function evaluateQuestion(
+  credential: AiGatewayCredential,
+  question: string,
+): Promise<Probabilities | null> {
   const apiRes = await fetch(EVALUATE_URL, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${credential.token}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -89,7 +93,11 @@ async function evaluateQuestion(apiKey: string, question: string): Promise<Proba
   });
 
   if (!apiRes.ok) {
-    console.warn(`Jev guardrail call failed (${apiRes.status}); allowing through.`);
+    // Drain without logging: an error body must not be able to echo the token.
+    await apiRes.text().catch(() => "");
+    console.warn(
+      `Jev guardrail call failed (${apiRes.status}, ${credential.source}); allowing through.`,
+    );
     return null;
   }
 
@@ -115,18 +123,25 @@ function decide(p: Probabilities): GuardrailVerdict {
  * First gate of the input guardrail chain: a Jev evaluation through Vercel AI
  * Gateway that blocks prompt injection and requests to produce unrelated work.
  *
- * Fails open, like the gate behind it. A missing key, a gateway outage or an
- * unreadable response all pass the question on to the next gate.
+ * Authenticates with the Vercel OIDC token, falling back to
+ * `AI_GATEWAY_API_KEY` (see `lib/ai-gateway-auth.ts`). `oidcToken` is the
+ * request's `x-vercel-oidc-token` header.
+ *
+ * Fails open, like the gate behind it. Missing credentials, a gateway outage
+ * or an unreadable response all pass the question on to the next gate.
  */
-export async function runJevGuardrail(question: string): Promise<GuardrailVerdict> {
-  const apiKey = process.env.AI_GATEWAY_API_KEY;
-  if (!apiKey) {
-    console.warn("AI_GATEWAY_API_KEY not set; skipping the Jev guardrail.");
-    return allowed("jev guardrail not configured");
-  }
-
+export async function runJevGuardrail(
+  question: string,
+  oidcToken?: string,
+): Promise<GuardrailVerdict> {
   try {
-    const probabilities = await evaluateQuestion(apiKey, question);
+    const credential = await getAiGatewayCredential(oidcToken);
+    if (!credential) {
+      console.warn("No AI Gateway credential (OIDC or API key); skipping the Jev guardrail.");
+      return allowed("jev guardrail not configured");
+    }
+
+    const probabilities = await evaluateQuestion(credential, question);
     return probabilities ? decide(probabilities) : allowed("jev guardrail unavailable");
   } catch (error) {
     console.warn("Jev guardrail error; allowing through:", error);

@@ -9,4 +9,4 @@ Set in the Vercel project, not in the repo:
 - `OPENAI_API_KEY` - Used only when the workload-identity vars are unset. Remove it from Vercel after workload identity works.
 - `SEARCH_PROVIDER` - `openai_web_search` (default) or `openrouter_xai`
 - `OPENROUTER_API_KEY` - Required if using OpenRouter provider
-- `AI_GATEWAY_API_KEY` - Required for Jev classifier
+- `AI_GATEWAY_API_KEY` - Optional. The Jev classifier authenticates to AI Gateway with the Vercel OIDC token and uses this key only when no OIDC token is available (local runs). Remove it from Vercel after a deployment shows Jev calls succeeding.

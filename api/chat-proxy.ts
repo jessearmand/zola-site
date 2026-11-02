@@ -245,7 +245,7 @@ async function runInputGuardrails(
   resumeData: string,
   oidcToken?: string,
 ): Promise<GuardrailVerdict> {
-  const jevVerdict = await runJevGuardrail(question);
+  const jevVerdict = await runJevGuardrail(question, oidcToken);
   if (jevVerdict.tripwireTriggered) {
     return jevVerdict;
   }
