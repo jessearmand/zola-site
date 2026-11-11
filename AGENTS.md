@@ -7,8 +7,11 @@ bun run build
 # Type-check TypeScript serverless functions
 bun run type-check
 
-# Unit tests for OpenAI workload-identity token exchange
+# Unit tests (auth, chat history, stream handling, provider config)
 bun run test
+
+# Compare decision models as the first guardrail gate (live AI Gateway calls)
+fnox exec -- bun scripts/eval-decision-models.ts
 
 # Local development with Zola (requires zola installed)
 zola serve
@@ -39,14 +42,24 @@ This is a Zola static site with an AI-powered chat feature deployed on Vercel.
   - Prefers OpenAI Responses with `web_search` + file search when OpenAI credentials are set
   - Falls back to Vercel AI Gateway Chat Completions (`deepseek/deepseek-v4.1-flash-1017`) when OpenAI is not configured
   - Streams SSE responses to the frontend
+  - `vercel.json` sets `maxDuration` to 60 seconds. The platform default on this project is 10, which killed slow first replies mid-stream
   - Reads resume context from `content/pages/about.md`
   - OpenAI auth is `lib/openai-auth.ts`: workload identity via the Vercel OIDC token when `OPENAI_IDENTITY_PROVIDER_ID` and `OPENAI_SERVICE_ACCOUNT_ID` are set, otherwise `OPENAI_API_KEY`
   - AI Gateway auth is `lib/ai-gateway-auth.ts`: Vercel OIDC first, `AI_GATEWAY_API_KEY` only as a local fallback
 
+**Conversation History**
+- The browser holds the conversation (`static/chat-history.js`) and sends it as `history` with each question. Nothing is stored server-side, and a reload starts a new conversation
+- `lib/chat-history.ts` is the trust boundary: it accepts only user/assistant text, a compaction item, or a summary, bounds their size, and builds each provider's message list. Client history never gets the system role
+- `lib/chat-provider.ts` holds each model's context window (1M tokens for both) and the budget derived from it: compact at 25%, refuse above 50%. Token counts are an estimate (about four characters per token)
+- `lib/chat-compaction.ts` compacts before answering: OpenAI's `/responses/compact` on the OpenAI path, a plain-text summary on the AI Gateway fallback (only OpenAI models can read a compaction item). The server sends the shorter history back in a `chat.history.replaced` event. A failed compaction keeps the full history
+- `static/chat-stream.js` reads the SSE stream and turns a failed, incomplete, or cut-off reply into a visible error. A refused or failed turn is not added to the history
+
 **Input Guardrails**
-- `guardrails/jev.ts` - First gate: a Jev evaluation through Vercel AI Gateway (`/v1/evaluate`) that blocks prompt injection and requests for unrelated work; thresholds live in this file
+- `guardrails/jev.ts` - First gate: a Jev evaluation through Vercel AI Gateway (`/v1/evaluate`) that blocks prompt injection and requests for unrelated work; thresholds and the model id live in this file
 - `guardrails/posts.ts` - Reads post titles and tags from `content/` as context for both gates (`vercel.json` bundles `content/**/*.md` into the function)
-- The second gate is the model-based classifier in `api/chat-proxy.ts` (OpenAI when configured, otherwise AI Gateway DeepSeek), which also blocks questions on subjects the blog does not cover; both fail open
+- `guardrails/classifier.ts` - Second gate: a model-based classifier (OpenAI when configured, otherwise AI Gateway DeepSeek) that also blocks questions on subjects the blog does not cover. General questions about the author (where based, employers, education, background) are allowed whether or not the résumé states the answer
+- Both gates see the last few turns, so a follow-up is judged by the subject it continues, and both fail open
+- `guardrails/eval-cases.json` - Labelled questions for `scripts/eval-decision-models.ts`
 
 **Vector Store (OpenAI File Search)**
 - `file_search/setup_file_search.py` - Uploads blog posts to OpenAI for RAG
@@ -56,8 +69,8 @@ This is a Zola static site with an AI-powered chat feature deployed on Vercel.
 ### Data Flow
 
 1. User submits question via `/chat` page
-2. Frontend POSTs to `/api/chat-proxy`
-3. API reads local resume markdown, calls OpenAI (or AI Gateway fallback) with streaming
+2. Frontend POSTs the question and the conversation history to `/api/chat-proxy`
+3. API validates the history, runs the guardrails, compacts the history if it is long, then calls OpenAI (or AI Gateway fallback) with streaming
 4. SSE chunks stream back, frontend parses and renders incrementally
 5. Citations (web URLs or file references) collected and displayed
 
