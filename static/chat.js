@@ -11,6 +11,7 @@
  * phase rules live in chat-activity.js.
  */
 import { renderMarkdown, escapeHtml } from "./markdown.js";
+import { stripCitationMarkers } from "./chat-citations.js";
 import { createHistory, isRefusal, recordTurn, replacementHistory } from "./chat-history.js";
 import {
   endOfStreamMessage,
@@ -111,7 +112,7 @@ function createTurn(output, label) {
 
   const renderAnswer = () => {
     indicator.stop();
-    el.innerHTML = `<strong>${escapeHtml(label)}</strong> ${renderMarkdown(markdown)}`;
+    el.innerHTML = `<strong>${escapeHtml(label)}</strong> ${renderMarkdown(stripCitationMarkers(markdown))}`;
     output.scrollTop = output.scrollHeight;
   };
 
@@ -359,8 +360,10 @@ async function sendMessage() {
 
     // Only a turn that finished cleanly joins the conversation. A failed or
     // refused turn is left out, so asking again starts from the same history.
+    // The inline citation markers are dropped so the model does not see them
+    // echoed back as its own earlier text.
     if (!state.failed && !state.refused) {
-      history = recordTurn(state.history, question, state.answer);
+      history = recordTurn(state.history, question, stripCitationMarkers(state.answer));
     }
 
     input.disabled = false;
