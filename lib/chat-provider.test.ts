@@ -4,6 +4,8 @@ import { describe, it } from "node:test";
 import {
   AI_GATEWAY_FALLBACK_MODEL,
   OPENAI_MODEL,
+  contextBudget,
+  contextWindowFor,
   resolveAnswerProvider,
 } from "./chat-provider.ts";
 
@@ -21,5 +23,19 @@ describe("resolveAnswerProvider", () => {
 
   it("falls back to AI Gateway when OpenAI is not configured", () => {
     assert.equal(resolveAnswerProvider(false), "ai_gateway");
+  });
+});
+
+describe("context budget", () => {
+  it("gives both answer models a 1M-token window", () => {
+    assert.equal(contextWindowFor("openai_web_search"), 1_000_000);
+    assert.equal(contextWindowFor("ai_gateway"), 1_000_000);
+  });
+
+  it("compacts at 25% of the window and refuses history above 50%", () => {
+    assert.deepEqual(contextBudget(1_000_000), {
+      compactAtTokens: 250_000,
+      maxHistoryTokens: 500_000,
+    });
   });
 });

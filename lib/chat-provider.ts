@@ -25,7 +25,47 @@ export const AI_GATEWAY_FALLBACK_MODEL = "deepseek/deepseek-v4.1-flash-1017";
 
 export const AI_GATEWAY_CHAT_URL = "https://ai-gateway.vercel.sh/v1/chat/completions";
 
+export const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
+/** Standalone compaction: returns a shorter window to carry forward. */
+export const OPENAI_COMPACT_URL = "https://api.openai.com/v1/responses/compact";
+
+/** Context window of each answer model, in tokens. */
+export const OPENAI_CONTEXT_WINDOW = 1_000_000;
+export const AI_GATEWAY_FALLBACK_CONTEXT_WINDOW = 1_000_000;
+
+/** Conversation history is compacted once it fills this share of the window. */
+export const COMPACTION_FRACTION = 0.25;
+
+/**
+ * A request carrying more history than this share of the window is refused.
+ * A well-behaved client is compacted long before it gets here, so the gap
+ * between the two only absorbs the error in the token estimate.
+ */
+export const MAX_HISTORY_FRACTION = 0.5;
+
+export type ContextBudget = {
+  /** Compact the history at or above this many estimated tokens. */
+  compactAtTokens: number;
+  /** Refuse the request above this many estimated tokens. */
+  maxHistoryTokens: number;
+};
+
+/** Token budget for conversation history on a model with this context window. */
+export function contextBudget(contextWindow: number): ContextBudget {
+  return {
+    compactAtTokens: Math.floor(contextWindow * COMPACTION_FRACTION),
+    maxHistoryTokens: Math.floor(contextWindow * MAX_HISTORY_FRACTION),
+  };
+}
+
 export type AnswerProvider = "openai_web_search" | "ai_gateway";
+
+/** Context window of the model that answers on this provider. */
+export function contextWindowFor(provider: AnswerProvider): number {
+  return provider === "openai_web_search"
+    ? OPENAI_CONTEXT_WINDOW
+    : AI_GATEWAY_FALLBACK_CONTEXT_WINDOW;
+}
 
 /**
  * Picks the answer path from whether OpenAI credentials are present.

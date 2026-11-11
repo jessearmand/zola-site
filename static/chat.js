@@ -11,6 +11,14 @@
  * phase rules live in chat-activity.js.
  */
 import { renderMarkdown, escapeHtml } from "./markdown.js";
+import { createHistory, isRefusal, recordTurn, replacementHistory } from "./chat-history.js";
+import {
+  endOfStreamMessage,
+  httpErrorMessage,
+  isCompletion,
+  splitSseBuffer,
+  streamErrorMessage,
+} from "./chat-stream.js";
 import {
   DOT_STEP_MS,
   createActivity,
@@ -215,6 +223,68 @@ function collectCitations(parsed, citations) {
   }
 }
 
+/**
+ * The conversation so far, sent with every question. It lives only in this
+ * page: reloading starts a new conversation.
+ */
+let history = createHistory();
+
+/**
+ * Applies one SSE payload to the turn being streamed.
+ * @param {string} data Raw `data:` payload.
+ * @param {object} state Mutable state for this request.
+ */
+function handlePayload(data, state) {
+  let parsed = null;
+  if (data !== "[DONE]") {
+    try {
+      parsed = JSON.parse(data);
+    } catch {
+      return;
+    }
+  }
+
+  if (isCompletion(data, parsed)) state.completed = true;
+  if (!parsed) return;
+
+  const replacement = replacementHistory(parsed);
+  if (replacement) {
+    state.history = replacement;
+    return;
+  }
+  if (isRefusal(parsed)) {
+    state.refused = true;
+    return;
+  }
+
+  const failure = streamErrorMessage(parsed);
+  if (failure && !state.failed) {
+    state.failed = true;
+    addError(state.output, failure);
+  }
+
+  const delta = extractDelta(parsed);
+  const next = reduceActivity(state.activity, parsed);
+  const becameDone = state.activity.phase !== "done" && next.phase === "done";
+  state.activity = next;
+
+  // Reasoning models emit reasoning/summary events alongside the answer.
+  // The phase update above already ran; only the final answer is rendered.
+  if (typeof parsed.type === "string" && parsed.type.startsWith("response.reasoning")) {
+    if (becameDone) state.turn.abandon();
+    else state.turn.setPhase(state.activity.phase);
+    return;
+  }
+
+  if (delta) {
+    state.answer += delta;
+    state.turn.append(delta);
+  } else if (becameDone) state.turn.abandon();
+  else state.turn.setPhase(state.activity.phase);
+
+  collectCitations(parsed, state.citations);
+}
+
 async function sendMessage() {
   const input = document.getElementById("chat-input");
   const button = document.getElementById("chat-send");
@@ -228,19 +298,28 @@ async function sendMessage() {
   input.disabled = true;
   button.disabled = true;
 
-  const citations = new Map();
-  let turn = createTurn(output, "Bot:");
-  let activity = createActivity();
+  const state = {
+    output,
+    turn: createTurn(output, "Bot:"),
+    activity: createActivity(),
+    citations: new Map(),
+    history,
+    answer: "",
+    completed: false,
+    refused: false,
+    failed: false,
+  };
 
   try {
     const response = await fetch(ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question }),
+      body: JSON.stringify({ question, history }),
     });
 
     if (!response.ok || !response.body) {
-      throw new Error(`Request failed with status ${response.status}: ${response.statusText}`);
+      const bodyText = await response.text().catch(() => "");
+      throw new Error(httpErrorMessage(response.status, bodyText));
     }
 
     const reader = response.body.getReader();
@@ -249,51 +328,41 @@ async function sendMessage() {
 
     while (true) {
       const { done, value } = await reader.read();
+      // Flush the decoder at the end, and add a newline so a final line the
+      // server did not terminate is still read.
+      buffer += done ? `${decoder.decode()}\n` : decoder.decode(value, { stream: true });
+
+      const { payloads, rest } = splitSseBuffer(buffer);
+      buffer = rest;
+      for (const data of payloads) handlePayload(data, state);
+
       if (done) break;
-      buffer += decoder.decode(value, { stream: true });
+    }
 
-      let lineEnd;
-      while ((lineEnd = buffer.indexOf("\n")) !== -1) {
-        const line = buffer.slice(0, lineEnd).trim();
-        buffer = buffer.slice(lineEnd + 1);
-
-        if (!line.startsWith("data: ")) continue; // skip `event:` lines and blanks
-        const data = line.slice(6);
-        if (data === "[DONE]") continue;
-
-        let parsed;
-        try {
-          parsed = JSON.parse(data);
-        } catch {
-          continue;
-        }
-
-        const delta = extractDelta(parsed);
-
-        const next = reduceActivity(activity, parsed);
-        const becameDone = activity.phase !== "done" && next.phase === "done";
-        activity = next;
-
-        // Reasoning models emit reasoning/summary events alongside the answer.
-        // The phase update above already ran; only the final answer is rendered.
-        if (typeof parsed.type === "string" && parsed.type.startsWith("response.reasoning")) {
-          if (becameDone) turn.abandon();
-          else turn.setPhase(activity.phase);
-          continue;
-        }
-
-        if (delta) turn.append(delta);
-        else if (becameDone) turn.abandon();
-        else turn.setPhase(activity.phase);
-
-        collectCitations(parsed, citations);
-      }
+    // A stream that just stops (a dropped connection, or a function that ran
+    // out of time) carries no error event, so it is detected here.
+    const ending = endOfStreamMessage({
+      completed: state.completed,
+      hasText: !!state.answer,
+      failed: state.failed,
+    });
+    if (ending) {
+      state.failed = true;
+      addError(output, ending);
     }
   } catch (error) {
-    addError(output, error.message);
+    state.failed = true;
+    addError(output, error.message || "The request failed. Please try again.");
   } finally {
-    turn.finish();
-    addSources(output, citations);
+    state.turn.finish();
+    addSources(output, state.citations);
+
+    // Only a turn that finished cleanly joins the conversation. A failed or
+    // refused turn is left out, so asking again starts from the same history.
+    if (!state.failed && !state.refused) {
+      history = recordTurn(state.history, question, state.answer);
+    }
+
     input.disabled = false;
     button.disabled = false;
     input.focus();
