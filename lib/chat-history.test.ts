@@ -5,7 +5,9 @@ import {
   MAX_HISTORY_ITEMS,
   estimateHistoryTokens,
   estimateTokens,
+  MAX_SUMMARY_CHARS,
   fromCompactOutput,
+  fromSummaryCompletion,
   parseHistory,
   recentTurns,
   shouldCompact,
@@ -200,6 +202,41 @@ describe("fromCompactOutput", () => {
       { type: "compaction", id: "cmp_9", encrypted_content: "gAAAB" },
     ]);
     assert.deepEqual(parseHistory(items, LIMITS), { ok: true, items });
+  });
+});
+
+describe("fromSummaryCompletion", () => {
+  const completion = (content: unknown, finish_reason: unknown) => ({
+    choices: [{ message: { role: "assistant", content }, finish_reason }],
+  });
+
+  it("accepts a summary the model finished", () => {
+    assert.deepEqual(fromSummaryCompletion(completion("  We spoke about drones.\n", "stop")), [
+      { type: "summary", text: "We spoke about drones." },
+    ]);
+  });
+
+  it("rejects a summary that was cut short or filtered", () => {
+    for (const reason of ["length", "content_filter", null, undefined]) {
+      assert.equal(fromSummaryCompletion(completion("We spoke about dro", reason)), null);
+    }
+  });
+
+  it("rejects an empty or unreadable response", () => {
+    assert.equal(fromSummaryCompletion(completion("   ", "stop")), null);
+    assert.equal(fromSummaryCompletion(completion(undefined, "stop")), null);
+    assert.equal(fromSummaryCompletion({ choices: [] }), null);
+    assert.equal(fromSummaryCompletion(null), null);
+  });
+
+  it("rejects a summary too long to send back, rather than clipping it", () => {
+    const tooLong = "a".repeat(MAX_SUMMARY_CHARS + 1);
+    assert.equal(fromSummaryCompletion(completion(tooLong, "stop")), null);
+    const longest = fromSummaryCompletion(completion("a".repeat(MAX_SUMMARY_CHARS), "stop"));
+    assert.deepEqual(parseHistory(longest, { maxUserChars: 2000, maxHistoryTokens: 1_000_000 }), {
+      ok: true,
+      items: longest,
+    });
   });
 });
 

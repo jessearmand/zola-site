@@ -230,6 +230,26 @@ export function fromCompactOutput(output: unknown): HistoryItem[] | null {
   return compacted ? items : null;
 }
 
+/**
+ * Converts a Chat Completions summarising response into history items.
+ *
+ * The summary replaces the history it describes, and the browser then discards
+ * the original turns, so only a whole summary is accepted. Returns null when
+ * the model did not finish cleanly (`finish_reason` other than `stop`, such as
+ * `length` or `content_filter`), when the text is empty, or when it is longer
+ * than `parseHistory` would accept back. Clipping it instead would silently
+ * drop whatever the cut removed. On null the caller keeps the history it had.
+ */
+export function fromSummaryCompletion(completion: unknown): HistoryItem[] | null {
+  if (!isRecord(completion) || !Array.isArray(completion.choices)) return null;
+  const choice: unknown = completion.choices[0];
+  if (!isRecord(choice) || choice.finish_reason !== "stop") return null;
+  if (!isRecord(choice.message) || typeof choice.message.content !== "string") return null;
+
+  const text = choice.message.content.trim();
+  return isBoundedString(text, MAX_SUMMARY_CHARS) ? [{ type: "summary", text }] : null;
+}
+
 export type ContextTurn = { role: "user" | "assistant" | "summary"; text: string };
 
 function clip(text: string, maxChars: number): string {

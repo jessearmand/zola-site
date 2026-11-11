@@ -1,7 +1,7 @@
 import type { AiGatewayCredential } from "./ai-gateway-auth.js";
 import {
-  MAX_SUMMARY_CHARS,
   fromCompactOutput,
+  fromSummaryCompletion,
   toResponsesInput,
   toTranscript,
   type HistoryItem,
@@ -96,12 +96,11 @@ export async function summariseWithAiGateway(
       return null;
     }
 
-    const data = (await apiRes.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-    const summary = data.choices?.[0]?.message?.content?.trim();
-    // Clipped to what `parseHistory` accepts, so the client can send it back.
-    return summary ? [{ type: "summary", text: summary.slice(0, MAX_SUMMARY_CHARS) }] : null;
+    const summary = fromSummaryCompletion(await apiRes.json());
+    if (!summary) {
+      console.warn("Summary was empty, incomplete or too long; keeping the full history.");
+    }
+    return summary;
   } catch (error) {
     console.warn("Summary error; keeping the full history:", error);
     return null;
