@@ -3,7 +3,7 @@
   "scripts": {
     "build": "sh scripts/build.sh",
     "type-check": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test lib/openai-auth.test.ts lib/ai-gateway-auth.test.ts lib/chat-provider.test.ts lib/chat-history.test.ts lib/chat-activity.test.js lib/chat-stream.test.js",
+    "test": "node --experimental-strip-types --test lib/openai-auth.test.ts lib/ai-gateway-auth.test.ts lib/chat-provider.test.ts lib/chat-history.test.ts lib/chat-activity.test.js lib/chat-stream.test.js lib/chat-citations.test.js",
     "lint": "vp lint",
     "format": "vp fmt",
     "check": "vp check"
