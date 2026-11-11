@@ -1,6 +1,4 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import fs from "node:fs/promises";
-import path from "node:path";
 import { runClassifierGuardrail } from "../guardrails/classifier.js";
 import { runJevGuardrail } from "../guardrails/jev.js";
 import {
@@ -32,6 +30,7 @@ import {
   type ContextBudget,
 } from "../lib/chat-provider.js";
 import { OpenAIAuthError, getOpenAIBearerToken, hasOpenAICredentials } from "../lib/openai-auth.js";
+import { getResumeData } from "../lib/resume.js";
 import { getVectorStoreId } from "../vector_store/vector-store-config.js";
 
 // Deterministic first gate. Rejected before any token is spent, including the
@@ -413,28 +412,4 @@ async function streamAiGatewayFallback(res: VercelResponse, turn: ChatTurn) {
   openStream(res);
   if (compacted) sendHistoryReplaced(res, compacted);
   await pipeUpstream(res, apiRes.body);
-}
-
-/**
- * Reads and sanitises resume context from local markdown files.
- * @returns The combined and cleaned text content from about.md and summary.md.
- */
-async function getResumeData(): Promise<string> {
-  try {
-    const pagesDir = path.join(process.cwd(), "content", "pages");
-    const aboutPath = path.join(pagesDir, "about.md");
-
-    const stripFrontMatter = (md: string) => md.replace(/^\+\+\+[\s\S]*?\+\+\+\s*/, "").trim();
-
-    // This destructured two bindings out of a one-element Promise.all, so
-    // `summaryRaw` was always '' and the template below appended an empty
-    // string. Reading only what is actually read. summary.md is in the vector
-    // store, so file_search still reaches it; loading it inline as well would
-    // change the context every request carries, which is a separate call.
-    const aboutRaw = await fs.readFile(aboutPath, "utf-8").catch(() => "");
-
-    return stripFrontMatter(aboutRaw) || "Resume data unavailable.";
-  } catch {
-    return "Resume data unavailable.";
-  }
 }

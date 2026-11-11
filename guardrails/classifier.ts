@@ -76,12 +76,18 @@ export function formatClassifierInput({ question, earlierTurns }: GuardrailInput
   return `Earlier turns:\n${turns}\n\nQuestion to classify:\n${question}`;
 }
 
+/**
+ * A provider call that did not return a usable answer. Carries the status, never
+ * the response body, so an error body cannot echo the bearer token into logs.
+ */
+export class ClassifierCallError extends Error {}
+
 /** Classifies via the OpenAI Responses API. Returns the raw verdict JSON. */
 async function classifyWithOpenAI(
   bearerToken: string,
   instructions: string,
   input: string,
-): Promise<string | null> {
+): Promise<string> {
   const apiRes = await fetch(OPENAI_RESPONSES_URL, {
     method: "POST",
     headers: {
@@ -109,8 +115,7 @@ async function classifyWithOpenAI(
 
   if (!apiRes.ok) {
     await apiRes.text().catch(() => "");
-    console.warn(`Guardrail call failed (${apiRes.status}); allowing through.`);
-    return null;
+    throw new ClassifierCallError(`OpenAI classifier call failed (${apiRes.status})`);
   }
 
   // `output_text` is an SDK convenience accessor and is absent from the raw
@@ -118,11 +123,11 @@ async function classifyWithOpenAI(
   const data = (await apiRes.json()) as {
     output?: Array<{ type: string; content?: Array<{ type: string; text?: string }> }>;
   };
-  return (
-    data.output
-      ?.find((item) => item.type === "message")
-      ?.content?.find((part) => part.type === "output_text")?.text ?? null
-  );
+  const text = data.output
+    ?.find((item) => item.type === "message")
+    ?.content?.find((part) => part.type === "output_text")?.text;
+  if (!text) throw new ClassifierCallError("OpenAI classifier returned no text");
+  return text;
 }
 
 /**
@@ -134,7 +139,7 @@ async function classifyWithAiGateway(
   credentialSource: string,
   instructions: string,
   input: string,
-): Promise<string | null> {
+): Promise<string> {
   const apiRes = await fetch(AI_GATEWAY_CHAT_URL, {
     method: "POST",
     headers: {
@@ -161,16 +166,76 @@ async function classifyWithAiGateway(
 
   if (!apiRes.ok) {
     await apiRes.text().catch(() => "");
-    console.warn(
-      `Guardrail call failed (${apiRes.status}, ${credentialSource}); allowing through.`,
+    throw new ClassifierCallError(
+      `AI Gateway classifier call failed (${apiRes.status}, ${credentialSource})`,
     );
-    return null;
   }
 
   const data = (await apiRes.json()) as {
     choices?: Array<{ message?: { content?: string } }>;
   };
-  return data.choices?.[0]?.message?.content ?? null;
+  const text = data.choices?.[0]?.message?.content;
+  if (!text) throw new ClassifierCallError("AI Gateway classifier returned no text");
+  return text;
+}
+
+export type ClassifierProvider = "openai" | "ai-gateway";
+
+/** What the classifier decided, and which provider and model decided it. */
+export interface Classification {
+  verdict: GuardrailVerdict;
+  provider: ClassifierProvider;
+  model: string;
+}
+
+/**
+ * Asks the classifier about one question. OpenAI when configured, otherwise AI
+ * Gateway. Null means no credentials for either.
+ *
+ * Throws when the call fails or the answer is not a known category. Production
+ * goes through `runClassifierGuardrail`, which turns that into fail-open; the
+ * eval script calls this directly so a failure is counted as one, not as a pass.
+ */
+export async function classifyQuestion(
+  input: GuardrailInput,
+  resumeData: string,
+  oidcToken?: string,
+): Promise<Classification | null> {
+  const instructions = buildGuardrailInstructions(await getPostIndex(), resumeData);
+  const classifierInput = formatClassifierInput(input);
+
+  let provider: ClassifierProvider;
+  let model: string;
+  let text: string;
+  if (hasOpenAICredentials(process.env)) {
+    provider = "openai";
+    model = OPENAI_MODEL;
+    text = await classifyWithOpenAI(
+      await getOpenAIBearerToken({ oidcToken }),
+      instructions,
+      classifierInput,
+    );
+  } else {
+    const credential = await getAiGatewayCredential(oidcToken);
+    if (!credential) return null;
+    provider = "ai-gateway";
+    model = AI_GATEWAY_FALLBACK_MODEL;
+    text = await classifyWithAiGateway(
+      credential.token,
+      credential.source,
+      instructions,
+      classifierInput,
+    );
+  }
+
+  const { category, reason } = JSON.parse(text) as Omit<GuardrailVerdict, "tripwireTriggered">;
+  if (category === "allowed") {
+    return { verdict: allowed(reason), provider, model };
+  }
+  if (!(category in REFUSAL_MESSAGES)) {
+    throw new ClassifierCallError(`classifier returned an unknown category: ${String(category)}`);
+  }
+  return { verdict: { tripwireTriggered: true, category, reason }, provider, model };
 }
 
 /**
@@ -191,44 +256,17 @@ export async function runClassifierGuardrail(
   oidcToken?: string,
 ): Promise<GuardrailVerdict> {
   try {
-    const instructions = buildGuardrailInstructions(await getPostIndex(), resumeData);
-    const classifierInput = formatClassifierInput(input);
-
-    let text: string | null;
-    if (hasOpenAICredentials(process.env)) {
-      text = await classifyWithOpenAI(
-        await getOpenAIBearerToken({ oidcToken }),
-        instructions,
-        classifierInput,
-      );
-    } else {
-      const credential = await getAiGatewayCredential(oidcToken);
-      if (!credential) {
-        console.warn("No provider credentials available for the guardrail; allowing through.");
-        return allowed("guardrail not configured");
-      }
-      text = await classifyWithAiGateway(
-        credential.token,
-        credential.source,
-        instructions,
-        classifierInput,
-      );
+    const classification = await classifyQuestion(input, resumeData, oidcToken);
+    if (!classification) {
+      console.warn("No provider credentials available for the guardrail; allowing through.");
+      return allowed("guardrail not configured");
     }
-
-    if (!text) {
+    return classification.verdict;
+  } catch (error) {
+    if (error instanceof ClassifierCallError) {
+      console.warn(`${error.message}; allowing through.`);
       return allowed("guardrail unavailable");
     }
-
-    const { category, reason } = JSON.parse(text) as Omit<GuardrailVerdict, "tripwireTriggered">;
-
-    // Only a recognised non-allowed category blocks. An unexpected value is a
-    // guardrail malfunction, and this guardrail fails open.
-    if (!(category in REFUSAL_MESSAGES)) {
-      return allowed(reason);
-    }
-
-    return { tripwireTriggered: true, category, reason };
-  } catch (error) {
     console.warn("Guardrail error; allowing through:", error);
     return allowed("guardrail error");
   }

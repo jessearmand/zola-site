@@ -10,8 +10,11 @@ bun run type-check
 # Unit tests (auth, chat history, stream handling, provider config)
 bun run test
 
-# Compare decision models as the first guardrail gate (live AI Gateway calls)
-fnox exec -- bun scripts/eval-decision-models.ts
+# Compare decision models as the first guardrail gate (live AI Gateway calls).
+# Needs VERCEL_OIDC_TOKEN or AI_GATEWAY_API_KEY from wherever this environment
+# supplies them; a placeholder key works where a network proxy injects the real one.
+# Options: --runs N (repeat to measure stability), --out results.json, --no-classifier
+bun scripts/eval-decision-models.ts
 
 # Local development with Zola (requires zola installed)
 zola serve
@@ -43,7 +46,7 @@ This is a Zola static site with an AI-powered chat feature deployed on Vercel.
   - Falls back to Vercel AI Gateway Chat Completions (`deepseek/deepseek-v4.1-flash-1017`) when OpenAI is not configured
   - Streams SSE responses to the frontend
   - `vercel.json` sets `maxDuration` to 60 seconds. The platform default on this project is 10, which killed slow first replies mid-stream
-  - Reads resume context from `content/pages/about.md`
+  - Reads resume context from `content/pages/about.md` (`lib/resume.ts`, shared with the eval script)
   - OpenAI auth is `lib/openai-auth.ts`: workload identity via the Vercel OIDC token when `OPENAI_IDENTITY_PROVIDER_ID` and `OPENAI_SERVICE_ACCOUNT_ID` are set, otherwise `OPENAI_API_KEY`
   - AI Gateway auth is `lib/ai-gateway-auth.ts`: Vercel OIDC first, `AI_GATEWAY_API_KEY` only as a local fallback
 
@@ -55,11 +58,11 @@ This is a Zola static site with an AI-powered chat feature deployed on Vercel.
 - `static/chat-stream.js` reads the SSE stream and turns a failed, incomplete, or cut-off reply into a visible error. A refused or failed turn is not added to the history
 
 **Input Guardrails**
-- `guardrails/jev.ts` - First gate: a Jev evaluation through Vercel AI Gateway (`/v1/evaluate`) that blocks prompt injection and requests for unrelated work; thresholds and the model id live in this file
+- `guardrails/jev.ts` - First gate: a Jev decision through Vercel AI Gateway (`/v1/decisions`; `/v1/evaluate` is deprecated) that blocks prompt injection and requests for unrelated work; thresholds and the model id live in this file. `/v1/decisions` has no criteria field, so `predicate()` writes them into the instructions
 - `guardrails/posts.ts` - Reads post titles and tags from `content/` as context for both gates (`vercel.json` bundles `content/**/*.md` into the function)
 - `guardrails/classifier.ts` - Second gate: a model-based classifier (OpenAI when configured, otherwise AI Gateway DeepSeek) that also blocks questions on subjects the blog does not cover. General questions about the author (where based, employers, education, background) are allowed whether or not the résumé states the answer
 - Both gates see the last few turns, so a follow-up is judged by the subject it continues, and both fail open
-- `guardrails/eval-cases.json` - Labelled questions for `scripts/eval-decision-models.ts`
+- `guardrails/eval-cases.json` - Labelled questions for `scripts/eval-decision-models.ts`. The script scores each model as the first gate, as the first gate in front of the real classifier (`classifyQuestion`, the throwing core of `runClassifierGuardrail`), and as a replacement for the classifier. Failed calls and missing probabilities are counted as errors, never as passes. The classifier baseline takes the OpenAI path only when OpenAI credentials are set, as in production; otherwise it scores the AI Gateway fallback
 
 **Vector Store (OpenAI File Search)**
 - `file_search/setup_file_search.py` - Uploads blog posts to OpenAI for RAG
