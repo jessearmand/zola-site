@@ -80,7 +80,7 @@ in the `docs/content` folder of the repository and the community can use [its fo
 - (Basic currently) multilingual site suport
 - Image processing
 - Themes
-- Shortcodes
+- Components (Tera v2, replaced shortcodes in 0.23)
 - Internal links
 - External link checker
 - Table of contents automatic generation

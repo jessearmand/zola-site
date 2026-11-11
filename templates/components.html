@@ -1,0 +1,20 @@
+{#- Tera components (Zola >= 0.23 replaces shortcodes with components). -#}
+{#- Usage in markdown: {{ <youtube id="VIDEO_ID" /> }} -#}
+{% component youtube(id, class="", autoplay=false) %}
+<div {% if class %}class="{{ class }}"{% endif %}>
+    <iframe
+        src="https://www.youtube.com/embed/{{ id }}{% if autoplay %}?autoplay=1{% endif %}"
+        webkitallowfullscreen
+        mozallowfullscreen
+        allowfullscreen>
+    </iframe>
+</div>
+{% endcomponent youtube %}
+
+{#- Port of the lightspeed theme's post_in_list macro. -#}
+{% component post_in_list(post) %}
+<li>
+  <a href="{{ post.permalink | safe }}">{{ post.title }}</a>
+  <time style="font-size:90%;" datetime="{{ post.date | date(format="%Y-%m-%dT%H:%M:%S%:z") }}">{{ post.date | date(format="%B %d, %Y") }}</time>
+</li>
+{% endcomponent post_in_list %}

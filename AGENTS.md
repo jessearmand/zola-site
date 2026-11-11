@@ -29,8 +29,10 @@ This is a Zola static site with an AI-powered chat feature deployed on Vercel.
 **Static Site (Zola)**
 - `config.toml` - Site configuration, theme settings, and feature flags
 - `content/` - Markdown blog posts with TOML front matter (date-prefixed filenames)
-- `templates/chat.html` - Custom template extending the theme for the chat page
-- `themes/lightspeed/` - Git submodule theme with base templates (`index.html`, `page.html`)
+- `templates/chat.html` - Custom template extending `index.html` for the chat page
+- `templates/index.html`, `page.html`, `404.html`, `sass/style.scss` - Vendored from the lightspeed theme (MIT, `LICENSE-lightspeed.md`) and ported to Tera v2; upstream does not support Zola 0.23
+- `templates/components.html` - Tera components (`youtube`, `post_in_list`). Zola 0.23 removed shortcodes and macros: call components from markdown as `{{ <youtube id="..." /> }}`
+- Zola version is pinned in the `build` script in `package.json` (0.23.6). Content is templated by Tera, so wrap literal `{{ }}` / `{% %}` in posts with `{% raw %}...{% endraw %}`
 
 **Serverless API (Vercel)**
 - `api/chat-proxy.ts` - Vercel serverless function handling chat requests

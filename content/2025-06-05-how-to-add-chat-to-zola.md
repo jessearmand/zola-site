@@ -38,9 +38,11 @@ This is the most critical step and where pitfalls often occur. To ensure the cha
 For my site, which uses the `lightspeed` theme, the main template is `index.html`, not a generic `base.html`. A common mistake is creating a new `base.html`, which disconnects the page from the theme's styling, header, and footer.
 
 My `templates/chat.html` starts by extending the correct theme template:
+{% raw %}
 ```html
 {% extends "index.html" %}
 ```
+{% endraw %}
 
 Inside this template, I structured the content within an `<article>` tag, just like the theme's `page.html`, to ensure consistency.
 
@@ -49,6 +51,7 @@ Inside this template, I structured the content within an `<article>` tag, just l
 The `lightspeed` theme is minimal and doesn't come with a component library like Bootstrap. To make the chat box, input field, and button match the theme, I used inline styles that mimic the theme's aesthetic (e.g., colors, fonts, and spacing).
 
 Here's a simplified view of the HTML structure within the template:
+{% raw %}
 ```html
 <article>
   <h1>{{ page.title }}</h1>
@@ -64,6 +67,7 @@ Here's a simplified view of the HTML structure within the template:
   </div>
 </article>
 ```
+{% endraw %}
 This approach ensures the chat component feels native to the site. For more complex styling, using a separate custom CSS file linked in your main template is a better practice.
 
 ### 3. Implement Secure API Interaction with a Serverless Function

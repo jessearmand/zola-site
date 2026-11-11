@@ -12,7 +12,7 @@ What did I learn so far?
 
 I have built two racing quads with 5-inch frame configuration, 6S (six Lithium Polymer battery cells) powered motors, ESC (Electronic Speed Controller), and FC (Flight Controller). I could write the details of my build, but I have written one of my builds on my DVR recordings here:
 
-{{ youtube(id="VgKQDRRUn1c") }}
+{{ <youtube id="VgKQDRRUn1c" /> }}
 
 My first 5-inch build was HGLRC Wind 5 Lite frame with HGLRC tower stack F722 FC + 45A 4-in-1 ESC. However, due to my blunder, the FC, radio receiver (Archer RS), and the VTX was fried just before I was about to fly it. I have tested with smoke stopper and multimeter before I plug it in directly to the battery. But, possibly due to messy wirings (as the stack is very tight) it caused a short circuit. I wasn't actually sure what was the cause.
 

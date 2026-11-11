@@ -52,4 +52,4 @@ To a `Transformer` these signals could represent some input sequences, and due t
 
 A recommended conversation of this topic with Eliezer Yudkowsky who believe that our ability to interpret an AGI (Artificial General Intelligence) or a `GPT` is much slower than its capability to improve further, and there's more on [Lex Fridman channel](https://www.youtube.com/@lexfridman):
 
-{{ youtube(id="41SUp-TRVlg") }}
+{{ <youtube id="41SUp-TRVlg" /> }}
