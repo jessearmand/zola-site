@@ -32,7 +32,7 @@ This is a Zola static site with an AI-powered chat feature deployed on Vercel.
 - `templates/chat.html` - Custom template extending `index.html` for the chat page
 - `templates/index.html`, `page.html`, `404.html`, `sass/style.scss` - Vendored from the lightspeed theme (MIT, `LICENSE-lightspeed.md`) and ported to Tera v2; upstream does not support Zola 0.23
 - `templates/components.html` - Tera components (`youtube`, `post_in_list`). Zola 0.23 removed shortcodes and macros: call components from markdown as `{{ <youtube id="..." /> }}`
-- Zola version is pinned in the `build` script in `package.json` (0.23.6). Content is templated by Tera, so wrap literal `{{ }}` / `{% %}` in posts with `{% raw %}...{% endraw %}`
+- Zola version is pinned in `scripts/build.sh` (0.23.6). It uses a `zola` on PATH only when the minor version matches, otherwise downloads the pinned release, because Vercel pre-installs the version named by the `ZOLA_VERSION` project env var. Content is templated by Tera, so wrap literal `{{ }}` / `{% %}` in posts with `{% raw %}...{% endraw %}`
 
 **Serverless API (Vercel)**
 - `api/chat-proxy.ts` - Vercel serverless function handling chat requests
