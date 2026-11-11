@@ -62,6 +62,7 @@ This is a Zola static site with an AI-powered chat feature deployed on Vercel.
 - `guardrails/posts.ts` - Reads post titles and tags from `content/` as context for both gates (`vercel.json` bundles `content/**/*.md` into the function)
 - `guardrails/classifier.ts` - Second gate: a model-based classifier (OpenAI when configured, otherwise AI Gateway DeepSeek) that also blocks questions on subjects the blog does not cover. General questions about the author (where based, employers, education, background) are allowed whether or not the résumé states the answer
 - Both gates see the last few turns, so a follow-up is judged by the subject it continues, and both fail open
+- `guardrails/eval-results.md` - Summary of the latest eval run and what it implies; update it when the eval is rerun
 - `guardrails/eval-cases.json` - Labelled questions for `scripts/eval-decision-models.ts`. The script scores each model as the first gate, as the first gate in front of the real classifier (`classifyQuestion`, the throwing core of `runClassifierGuardrail`), and as a replacement for the classifier. Failed calls and missing probabilities are counted as errors, never as passes. The classifier baseline takes the OpenAI path only when OpenAI credentials are set, as in production; otherwise it scores the AI Gateway fallback
 
 **Vector Store (OpenAI File Search)**
