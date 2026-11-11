@@ -12,9 +12,23 @@
 export const INTERRUPTED_MESSAGE = "The reply was cut off before it finished. Please try again.";
 export const EMPTY_MESSAGE = "No answer came back. Please try again.";
 
+const LENGTH_LIMIT_MESSAGE = "The reply hit its length limit and was cut short.";
+const CONTENT_FILTER_MESSAGE = "The reply was stopped by a content filter.";
+
+/** Responses API: `response.incomplete_details.reason`. */
 const INCOMPLETE_REASONS = {
-  max_output_tokens: "The reply hit its length limit and was cut short.",
-  content_filter: "The reply was stopped by a content filter.",
+  max_output_tokens: LENGTH_LIMIT_MESSAGE,
+  content_filter: CONTENT_FILTER_MESSAGE,
+};
+
+/**
+ * Chat Completions: a `finish_reason` that ends the stream normally but
+ * means the answer is not whole. `stop` is the only clean ending this chat
+ * expects; it attaches no tools, so `tool_calls` does not arise.
+ */
+const UNFINISHED_FINISH_REASONS = {
+  length: LENGTH_LIMIT_MESSAGE,
+  content_filter: CONTENT_FILTER_MESSAGE,
 };
 
 /**
@@ -51,7 +65,10 @@ function errorText(error) {
  *
  * Covers the proxy's own `{ error }` events, the Responses API's `error`,
  * `response.failed` and `response.incomplete` events, and a Chat Completions
- * chunk carrying an `error`.
+ * chunk that carries an `error` or ends on a `finish_reason` such as
+ * `length`. That last one still counts as the end of the stream
+ * (`isCompletion`), so it has to be caught here or a truncated answer would
+ * pass as a whole one and be kept in the conversation history.
  * @param {unknown} parsed Parsed SSE `data:` payload.
  * @returns {string}
  */
@@ -70,6 +87,12 @@ export function streamErrorMessage(parsed) {
   if (parsed.type === "response.incomplete") {
     const reason = parsed.response?.incomplete_details?.reason;
     return INCOMPLETE_REASONS[reason] || "The reply ended before it was complete.";
+  }
+  if (Array.isArray(parsed.choices)) {
+    for (const choice of parsed.choices) {
+      const message = UNFINISHED_FINISH_REASONS[choice?.finish_reason];
+      if (message) return message;
+    }
   }
   return "";
 }
