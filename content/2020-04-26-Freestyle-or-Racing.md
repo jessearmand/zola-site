@@ -10,7 +10,7 @@ I would like to explore a bit on how does someone who started with FPV approach 
 
 How difficult is it to race at Drone Park?
 
-{{ youtube(id="RiVMsbak_FY") }}
+{{ <youtube id="RiVMsbak_FY" /> }}
 
 As you can see from the video, the track is the most challenging I've ever seen compared to DRL tracks in previous years, as it involves multi-directional full-throttle maneuver, power-loops, corkscrew, and more. A slight interruption to flow will just ruin everything and it will definitely drop your lap time. I could finish the track but with about 2-3 of the time it takes compared to the #1 in the leaderboard. Also, it's very difficult to do inverted power loop, while staying on track with full throttle. [Alpha Pilot?](https://lockheedmartin.com/en-us/news/events/ai-innovation-challenge.html) Let's just say robotics and AI will need to learn animal instinct before it can compete with the best FPV pilots.
 

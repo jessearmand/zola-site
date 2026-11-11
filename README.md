@@ -1,6 +1,6 @@
 # jessearmand.com
 
-Zola site deployed on Vercel as project `zola-site` (team `jessearmand`). The `/chat` page calls the Node function `api/chat-proxy`, which sends the question to the OpenAI Responses API.
+Zola site deployed on Vercel as project `zola-site` (team `jessearmand`). The `/chat` page calls the Node function `api/chat-proxy`, which prefers the OpenAI Responses API (`gpt-6-luna` with `web_search` and file search) and falls back to Vercel AI Gateway Chat Completions (`deepseek/deepseek-v4.1-flash-1017`) when OpenAI credentials are not configured.
 
 ## OpenAI authentication
 
@@ -23,8 +23,11 @@ Optional:
 | --- | --- |
 | `OPENAI_OIDC_AUDIENCE` | Set only when the OpenAI provider expects an `aud` other than Vercel's default. Passed to `getVercelOidcToken({ audience })`. |
 | `OPENAI_API_KEY` | Fallback for local development and for the file-search scripts. Remove it from Vercel after a deployment with the two ids above answers a chat request. |
+| `AI_GATEWAY_API_KEY` | Optional local-only fallback for AI Gateway (Jev guardrail, model guardrail, and chat fallback). On Vercel the function uses the OIDC token instead. |
 
 Do not set `VERCEL_OIDC_TOKEN`. Vercel injects the OIDC token into the function as `x-vercel-oidc-token` and, during builds, as `VERCEL_OIDC_TOKEN`. `getVercelOidcToken()` from `@vercel/oidc` reads it.
+
+After deploying the AI Gateway fallback, remove these if they are still set: `OPENROUTER_API_KEY`, `XAI_API_KEY`, `SEARCH_PROVIDER`.
 
 ### OpenAI provider and service account mapping
 
@@ -77,7 +80,7 @@ in the `docs/content` folder of the repository and the community can use [its fo
 - (Basic currently) multilingual site suport
 - Image processing
 - Themes
-- Shortcodes
+- Components (Tera v2, replaced shortcodes in 0.23)
 - Internal links
 - External link checker
 - Table of contents automatic generation

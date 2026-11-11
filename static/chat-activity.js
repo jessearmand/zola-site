@@ -69,11 +69,11 @@ export function progressVisual(phase, step) {
  */
 export function extractDelta(parsed) {
   if (!parsed || typeof parsed !== "object") return "";
-  // Responses API (OpenAI, and the xAI live-search follow-up)
+  // Responses API (OpenAI web search path)
   if (parsed.type === "response.output_text.delta") {
     return parsed.delta || "";
   }
-  // Chat Completions (OpenRouter / xAI)
+  // Chat Completions (AI Gateway fallback)
   if (parsed.choices && parsed.choices[0].delta) {
     return parsed.choices[0].delta.content || "";
   }

@@ -297,7 +297,7 @@ def test_file_search():
     print(f"Testing file search with query: {{query}}")
 
     response = client.responses.create(
-        model="gpt-5.6-luna",
+        model="gpt-6-luna",
         input=query,
         reasoning={{"effort": "low"}},
         tools=[{{

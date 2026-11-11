@@ -21,7 +21,6 @@ import {
 } from "./chat-activity.js";
 
 const ENDPOINT = "/api/chat-proxy";
-const SEPARATOR = "<br><hr><br>"; // server signal that a second stream follows
 
 /**
  * "Thinking." / "Reading..." in the assistant slot.
@@ -206,18 +205,13 @@ function collectCitations(parsed, citations) {
     }
   }
 
-  // Chat Completions (OpenRouter)
+  // Chat Completions (AI Gateway fallback)
   if (parsed.choices && parsed.choices[0].delta?.annotations) {
     for (const a of parsed.choices[0].delta.annotations) {
       if (a.type === "url_citation" && a.url_citation?.url) {
         citations.set(a.url_citation.url, a.url_citation.title || "");
       }
     }
-  }
-
-  // Chat Completions (xAI)
-  if (parsed.citations) {
-    for (const url of parsed.citations) citations.set(url, "");
   }
 }
 
@@ -275,18 +269,6 @@ async function sendMessage() {
         }
 
         const delta = extractDelta(parsed);
-        if (delta === SEPARATOR) {
-          // Server is handing over to the secondary live-search stream.
-          // The sentinel is a synthetic delta, not answer text, so the new
-          // turn starts its own Thinking / Reading cycle.
-          turn.finish();
-          const hr = document.createElement("hr");
-          hr.className = "chat-separator";
-          output.appendChild(hr);
-          turn = createTurn(output, "Live Search:");
-          activity = createActivity();
-          continue;
-        }
 
         const next = reduceActivity(activity, parsed);
         const becameDone = activity.phase !== "done" && next.phase === "done";

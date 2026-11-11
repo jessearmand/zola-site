@@ -4,33 +4,17 @@ import path from "node:path";
 import { runJevGuardrail } from "../guardrails/jev.js";
 import { getPostIndex, type PostIndex } from "../guardrails/posts.js";
 import { allowed, type GuardrailVerdict } from "../guardrails/verdict.js";
+import { getAiGatewayCredential } from "../lib/ai-gateway-auth.js";
+import {
+  AI_GATEWAY_CHAT_URL,
+  AI_GATEWAY_FALLBACK_MODEL,
+  OPENAI_MODEL,
+  OPENAI_REASONING_EFFORT,
+  OPENAI_VERBOSITY,
+  resolveAnswerProvider,
+} from "../lib/chat-provider.js";
 import { OpenAIAuthError, getOpenAIBearerToken, hasOpenAICredentials } from "../lib/openai-auth.js";
 import { getVectorStoreId } from "../vector_store/vector-store-config.js";
-
-// Determine which search provider to use based on environment variables.
-// Defaults to 'openai_web_search' if SEARCH_PROVIDER is not set.
-const searchProvider = process.env.SEARCH_PROVIDER || "openai_web_search";
-
-// GPT-5.6 model family. `luna` is the efficient, high-volume tier — the right
-// fit for short chat answers. See the GPT-5.6 migration guide:
-// https://developers.openai.com/api/docs/guides/latest-model
-const OPENAI_MODEL = "gpt-5.6-luna";
-
-// Reasoning effort for the Responses API. `low` keeps latency down for a
-// latency-sensitive chat widget while still allowing tool use (web + file search).
-const OPENAI_REASONING_EFFORT = "low";
-
-// Default level of detail. GPT-5.6 is terse by default, so `text.verbosity` is
-// the documented lever for length control now that the old "be concise"
-// instruction has been dropped from the prompt.
-const OPENAI_VERBOSITY = "medium";
-
-// Model used on the SEARCH_PROVIDER=openrouter_xai path, for both the answer
-// and the guardrail classification.
-const OPENROUTER_MODEL = "openai/gpt-4.1-mini";
-
-// Secondary live-search model on the same path. https://docs.x.ai/developers/models/grok-4.3
-const XAI_MODEL = "grok-4.3-latest";
 
 // Deterministic first gate. Rejected before any token is spent, including the
 // guardrail's own call.
@@ -141,22 +125,23 @@ async function classifyWithOpenAI(
 }
 
 /**
- * Classifies via OpenRouter's Chat Completions API, so a deployment configured
- * with only OPENROUTER_API_KEY is still guarded.
+ * Classifies via AI Gateway Chat Completions so a deployment without OpenAI
+ * credentials is still guarded (same credential path as the Jev gate).
  */
-async function classifyWithOpenRouter(
-  apiKey: string,
+async function classifyWithAiGateway(
+  bearerToken: string,
+  credentialSource: string,
   instructions: string,
   question: string,
 ): Promise<string | null> {
-  const apiRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+  const apiRes = await fetch(AI_GATEWAY_CHAT_URL, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${bearerToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: OPENROUTER_MODEL,
+      model: AI_GATEWAY_FALLBACK_MODEL,
       messages: [
         { role: "system", content: instructions },
         { role: "user", content: question },
@@ -173,7 +158,10 @@ async function classifyWithOpenRouter(
   });
 
   if (!apiRes.ok) {
-    console.warn(`Guardrail call failed (${apiRes.status}); allowing through.`);
+    await apiRes.text().catch(() => "");
+    console.warn(
+      `Guardrail call failed (${apiRes.status}, ${credentialSource}); allowing through.`,
+    );
     return null;
   }
 
@@ -189,8 +177,8 @@ async function classifyWithOpenRouter(
  * and file search, so the cost of starting it speculatively is exactly what the
  * guide says blocking execution is for.
  *
- * Classifies with whichever provider the deployment is configured for, so an
- * OpenRouter-only deployment is guarded too rather than silently unguarded.
+ * Classifies with OpenAI when configured, otherwise AI Gateway, so a
+ * gateway-only deployment is guarded too rather than silently unguarded.
  *
  * Fails open. The endpoint's risk is wasted spend, not safety, so a guardrail
  * outage should not take the chat down with it.
@@ -201,18 +189,30 @@ async function runInputGuardrail(
   oidcToken?: string,
 ): Promise<GuardrailVerdict> {
   const openAIConfigured = hasOpenAICredentials(process.env);
-  const openRouterKey = process.env.OPENROUTER_API_KEY;
-
-  if (!openAIConfigured && !openRouterKey) {
-    console.warn("No provider credentials available for the guardrail; allowing through.");
-    return allowed("guardrail not configured");
-  }
 
   try {
     const instructions = buildGuardrailInstructions(await getPostIndex(), resumeData);
-    const text = openAIConfigured
-      ? await classifyWithOpenAI(await getOpenAIBearerToken({ oidcToken }), instructions, question)
-      : await classifyWithOpenRouter(openRouterKey!, instructions, question);
+
+    let text: string | null;
+    if (openAIConfigured) {
+      text = await classifyWithOpenAI(
+        await getOpenAIBearerToken({ oidcToken }),
+        instructions,
+        question,
+      );
+    } else {
+      const credential = await getAiGatewayCredential(oidcToken);
+      if (!credential) {
+        console.warn("No provider credentials available for the guardrail; allowing through.");
+        return allowed("guardrail not configured");
+      }
+      text = await classifyWithAiGateway(
+        credential.token,
+        credential.source,
+        instructions,
+        question,
+      );
+    }
 
     if (!text) {
       return allowed("guardrail unavailable");
@@ -290,8 +290,8 @@ function sendRefusal(res: VercelResponse, message: string): void {
  * request, so the model is never told to consult a source it cannot reach.
  *
  * @param resumeData Author context from content/pages/about.md.
- * @param tools Which retrieval tools the caller wired up. The OpenRouter path
- *   has neither, so it must not be told to consult the posts.
+ * @param tools Which retrieval tools the caller wired up. The AI Gateway
+ *   fallback has neither, so it must not be told to consult the posts.
  */
 function buildInstructions(resumeData: string, tools: { posts: boolean; web: boolean }): string {
   // Stated as an unconditional labelling rule rather than "if the posts don't
@@ -327,7 +327,7 @@ ${resumeData}`;
 
 /**
  * Main handler for the Vercel serverless function.
- * Routes the request to the appropriate search provider based on the `searchProvider` config.
+ * OpenAI Responses + web search when OpenAI is configured; otherwise AI Gateway.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== "POST") {
@@ -363,11 +363,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   }
 
   try {
-    // Route to the appropriate streaming function based on the configured provider.
-    if (searchProvider === "openrouter_xai") {
-      await streamOpenRouterXai(res, question, resumeData);
-    } else {
+    const provider = resolveAnswerProvider(hasOpenAICredentials(process.env));
+    if (provider === "openai_web_search") {
       await streamOpenaiWebSearch(res, question, resumeData, oidcToken);
+    } else {
+      await streamAiGatewayFallback(res, question, resumeData, oidcToken);
     }
   } catch (error) {
     const err = error as Error;
@@ -406,7 +406,7 @@ async function streamOpenaiWebSearch(
 
   // Build tools array - always include web search, add file search if available.
   // `web_search` supersedes the legacy `web_search_preview` tool and is the
-  // supported hosted search tool for the GPT-5.x reasoning models.
+  // supported hosted search tool for GPT-6 models.
   const tools: Array<
     | {
         type: "web_search";
@@ -481,26 +481,35 @@ async function streamOpenaiWebSearch(
 }
 
 /**
- * Fetches and streams a dual response from OpenRouter (GPT) followed by x.ai (Grok).
- * This is the original implementation.
- * @requires OPENROUTER_API_KEY
- * @requires XAI_API_KEY (optional)
+ * Streams a single Chat Completions answer through Vercel AI Gateway.
+ *
+ * Used when OpenAI is not configured. No web/file search tools on this path —
+ * same grounding limits as the old non-OpenAI answer stream. Auth reuses
+ * `getAiGatewayCredential` (OIDC, then local `AI_GATEWAY_API_KEY`).
  */
-async function streamOpenRouterXai(res: VercelResponse, question: string, resumeData: string) {
-  const openRouterKey = process.env.OPENROUTER_API_KEY;
-  if (!openRouterKey) {
-    res.status(500).json({ error: "OpenRouter API key not configured." });
+async function streamAiGatewayFallback(
+  res: VercelResponse,
+  question: string,
+  resumeData: string,
+  oidcToken?: string,
+) {
+  const credential = await getAiGatewayCredential(oidcToken);
+  if (!credential) {
+    res.status(500).json({
+      error:
+        "No chat provider configured. Set OpenAI workload identity / OPENAI_API_KEY, or provide an AI Gateway credential.",
+    });
     return;
   }
 
-  const openRouterRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+  const apiRes = await fetch(AI_GATEWAY_CHAT_URL, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${openRouterKey}`,
+      Authorization: `Bearer ${credential.token}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: OPENROUTER_MODEL,
+      model: AI_GATEWAY_FALLBACK_MODEL,
       stream: true,
       messages: [
         // No retrieval tools on this path, so the instructions tell the model
@@ -511,85 +520,26 @@ async function streamOpenRouterXai(res: VercelResponse, question: string, resume
     }),
   });
 
-  if (!openRouterRes.ok || !openRouterRes.body) {
-    throw new Error(`OpenRouter API error: ${openRouterRes.statusText}`);
+  if (!apiRes.ok || !apiRes.body) {
+    await apiRes.text().catch(() => "");
+    throw new Error(`AI Gateway API error: ${apiRes.statusText} (${credential.source})`);
   }
 
-  // Set up Server-Sent Events headers.
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
     Connection: "keep-alive",
   });
 
-  // First, stream the OpenRouter response.
   try {
-    for await (const chunk of openRouterRes.body as any) {
+    for await (const chunk of apiRes.body as any) {
       res.write(chunk);
     }
   } catch (err: any) {
-    res.write(`data: {"error":"OpenRouter stream error: ${err.message}"}\n\n`);
+    res.write(`data: {"error":"Streaming Error: ${err.message}"}\n\n`);
+  } finally {
     res.end();
-    return;
   }
-
-  // Then, stream the x.ai live-search as a secondary response — but only if it
-  // will actually produce one. Emitting the separator unconditionally left the
-  // client rendering a divider and an empty "Live Search:" turn whenever
-  // XAI_API_KEY was unset.
-  const xaiKey = process.env.XAI_API_KEY;
-  if (!xaiKey) {
-    res.end();
-    return;
-  }
-
-  // Frame terminator was `}n\n` — a typo that made this line unparseable JSON,
-  // so the separator was silently dropped by the client.
-  res.write('data: {"choices":[{"delta":{"content":"<br><hr><br>"}}]}\n\n');
-  await streamXaiSearch(res, xaiKey, question);
-}
-
-/**
- * Helper to stream a secondary search from x.ai.
- * The caller checks for the key before emitting the separator; if the call
- * itself fails, this gracefully finishes the stream.
- */
-async function streamXaiSearch(res: VercelResponse, xaiKey: string, question: string) {
-  // xAI's Chat Completions endpoint and its `search_parameters` block are now
-  // filed under "Legacy & Deprecated"; live search is a `web_search` tool on
-  // their Responses API. That API is OpenAI-compatible, so this stream emits
-  // `response.output_text.delta` events and carries citations as
-  // `url_citation` annotations -- both already handled by the client.
-  const xaiRes = await fetch("https://api.x.ai/v1/responses", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${xaiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: XAI_MODEL,
-      stream: true,
-      // This stream renders under a separate "Live Search" heading, so its job
-      // is the live-web complement to the blog answer, not a second reading of
-      // the posts.
-      instructions: `Answer from live web search, drawing on @jessearmand on X and GitHub where relevant. Lead with the answer, then the evidence and any material caveat. Report what the sources say without taking a side, and say so when they disagree or when you found nothing. Omit generic praise and sign-offs.`,
-      input: question,
-      tools: [{ type: "web_search" }],
-    }),
-  });
-
-  if (xaiRes.ok && xaiRes.body) {
-    // Same contract as the OpenAI stream: forward every event, including
-    // `response.web_search_call.*`, so the "Live Search" turn can show Reading.
-    try {
-      for await (const chunk of xaiRes.body as any) {
-        res.write(chunk);
-      }
-    } catch {
-      // Ignore streaming errors from this optional, secondary search.
-    }
-  }
-  res.end();
 }
 
 /**
