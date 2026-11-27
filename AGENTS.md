@@ -38,6 +38,8 @@ This is a Zola static site with an AI-powered chat feature deployed on Vercel.
 - `templates/chat.html` - Custom template extending `index.html` for the chat page
 - `templates/index.html`, `page.html`, `404.html`, `sass/style.scss` - Vendored from the lightspeed theme (MIT, `LICENSE-lightspeed.md`) and ported to Tera v2; upstream does not support Zola 0.23
 - `templates/components.html` - Tera components (`youtube`, `post_in_list`). Zola 0.23 removed shortcodes and macros: call components from markdown as `{{ <youtube id="..." /> }}`
+- `vercel.json` serves `/atom.xml` as `application/atom+xml; charset=utf-8`. Without the charset, readers and Cloudflare's crawler decode it as Latin-1
+- Cloudflare Search for Agents is on for the zone. Cloudflare serves `/.well-known/search` and injects the `agent:*` meta tags at the edge, so neither is in this repo. Its AI Search instance excludes `**/atom.xml` and `/chat`
 - Zola version is pinned in `scripts/build.sh` (0.23.6). It uses a `zola` on PATH only when the minor version matches, otherwise downloads the pinned release, because Vercel pre-installs the version named by the `ZOLA_VERSION` project env var. Content is templated by Tera, so wrap literal `{{ }}` / `{% %}` in posts with `{% raw %}...{% endraw %}`
 
 **Serverless API (Vercel)**
